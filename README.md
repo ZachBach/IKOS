@@ -56,8 +56,8 @@ One state, many renderers. Nothing is duplicated between views.
 ```mermaid
 flowchart TB
     subgraph State["🧠 Shared State  (localStorage: ikos_state_v1)"]
-        N["nodes {id, type, summary, mastery}"]
-        E["edges {source, target, relationship}"]
+        N["nodes: id · type · summary · mastery"]
+        E["edges: source → target · relationship"]
         C["chapters + books (paths through the graph)"]
         MOD["installed modules + rules"]
         X["notes · node videos · user books"]
@@ -68,7 +68,7 @@ flowchart TB
     State --> Term["▶ Terminal (REPL)"]
     State --> Orbit["◉ Orbit renderer (WebGPU · TSL)"]
 
-    Book -->|"click [[concept]] · new book at last page"| State
+    Book -->|"click concept links · begin new books"| State
     Graph -->|"drag · connect · reflect · fold"| State
     Term -->|"commands + natural language"| State
     Orbit -->|"click a planet → inspect · grow · destroy"| State
@@ -113,7 +113,7 @@ stateDiagram-v2
     Reflecting --> Confused: weak explain-back
     Confused --> Simplified: on_confusion rule → offer simpler framing
     Simplified --> Reflecting: try again
-    Deepening --> Mastered: confidence ≥ 0.8 & confusion ≤ 0.25
+    Deepening --> Mastered: confidence ≥ 0.8 and confusion ≤ 0.25
     Mastered --> [*]
     Mastered --> Review: on_mastery rule (with Spaced Repetition module)
     Review --> Mastered
@@ -133,8 +133,8 @@ Modules are graph **packages** — `{ nodes, edges, rules, trust, permissions }`
 flowchart TD
     Browse["⬡ Open Modules browser"] --> Pick["Pick a package"]
     Pick --> Trust{"Trust lane?"}
-    Trust -->|official / community| Merge["Merge nodes + edges + rules<br/>into the graph"]
-    Trust -->|experimental / mutates state| Gate{"Dev mode on?"}
+    Trust -->|"official / community"| Merge["Merge nodes + edges + rules<br/>into the graph"]
+    Trust -->|"experimental / mutates state"| Gate{"Dev mode on?"}
     Gate -->|yes| Merge
     Gate -->|no| Confirm["⚠ Confirm: unlock Dev & install"]
     Confirm --> Merge
