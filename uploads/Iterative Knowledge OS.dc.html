@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,500;0,600;1,400;1,500&family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0c0f14; }
+  ::selection { background: #d4b15f44; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #ffffff1a; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes dashFlow { to { stroke-dashoffset: -24; } }
+  @keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+  @keyframes pulseIn { 0% { transform: translate(-50%,-50%) scale(.7); } 60% { transform: translate(-50%,-50%) scale(1.08); } 100% { transform: translate(-50%,-50%) scale(1); } }
+  @keyframes paraReveal { from { transform: translateY(5px); } to { transform: none; } }
+  @keyframes pageTurn { 0% { transform: perspective(1500px) rotateY(-7deg); transform-origin: left center; } 100% { transform: perspective(1500px) rotateY(0deg); } }
+  @keyframes termRise { from { transform: translateY(14px); } to { transform: translateY(0); } }
+  @keyframes fadeUp { from { transform: translateY(8px); } to { transform: none; } }
+  @keyframes tick { from { transform: translateY(-2px); } to { transform: none; } }
+  @keyframes sealIn { 0% { transform: scale(.4) rotate(-12deg); } 70% { transform: scale(1.15) rotate(3deg); } 100% { transform: scale(1) rotate(0); } }
+</style>
+</helmet>
+
+<div style="position:fixed; inset:0; display:flex; flex-direction:column; font-family:'IBM Plex Mono',monospace; background:radial-gradient(140% 100% at 50% -10%, #161b24 0%, #0c0f14 60%); color:#e8e2d4; overflow:hidden;">
+
+  <!-- ======== OS BAR ======== -->
+  <div style="flex:0 0 auto; display:flex; align-items:center; gap:18px; height:54px; padding:0 18px; border-bottom:1px solid {{ ui.hair }}; background:{{ ui.barBg }}; position:relative; z-index:40;">
+    <div style="display:flex; align-items:center; gap:11px; min-width:232px;">
+      <div style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; color:{{ ui.accent }}; transform:rotate({{ ui.diamondSpin }});">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="10" y="1.6" width="11.8" height="11.8" rx="1.6" transform="rotate(45 10 1.6)" stroke="currentColor" stroke-width="1.3"></rect><circle cx="10" cy="10" r="2.1" fill="currentColor"></circle></svg>
+      </div>
+      <div style="line-height:1.05;">
+        <div style="font-size:13px; letter-spacing:.16em; font-weight:600; color:#f3eee2;">IKOS</div>
+        <div style="font-size:8.5px; letter-spacing:.2em; color:#8a8576; text-transform:uppercase;">Iterative Knowledge OS</div>
+      </div>
+    </div>
+
+    <!-- mode switcher -->
+    <div style="display:flex; align-items:center; gap:3px; padding:3px; border:1px solid {{ ui.hair }}; border-radius:9px; background:#0c0f14;">
+      <sc-for list="{{ ui.modes }}" as="m" hint-placeholder-count="3">
+        <div onClick="{{ m.onClick }}" style="{{ m.style }}" title="{{ m.title }}">{{ m.label }}</div>
+      </sc-for>
+    </div>
+
+    <!-- book voice (only book/split) -->
+    <sc-if value="{{ ui.showVoices }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:9px; letter-spacing:.16em; color:#6b6f63; text-transform:uppercase;">voice</span>
+        <div style="display:flex; gap:2px; padding:2px; border:1px solid {{ ui.hair }}; border-radius:7px;">
+          <sc-for list="{{ ui.voices }}" as="v" hint-placeholder-count="3">
+            <div onClick="{{ v.onClick }}" style="{{ v.style }}">{{ v.label }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="flex:1 1 auto;"></div>
+
+    <!-- objective (always visible) -->
+    <div style="display:flex; align-items:center; gap:9px; padding:6px 13px; border:1px solid {{ ui.hair }}; border-radius:8px; background:#0c0f1488; max-width:330px;">
+      <span style="color:{{ ui.accent }}; font-size:12px;">◎</span>
+      <div style="line-height:1.1;">
+        <div style="font-size:8px; letter-spacing:.18em; color:#6b6f63; text-transform:uppercase;">current objective</div>
+        <div style="font-size:11.5px; color:#cfc9ba; font-family:'Spectral',serif; font-style:italic;">{{ objective }}</div>
+      </div>
+    </div>
+
+    <!-- safe / dev -->
+    <div onClick="{{ ui.onToggleDev }}" style="{{ ui.devPill }}" title="Toggle Safe / Dev mode">
+      <span style="font-size:11px;">{{ ui.devGlyph }}</span>
+      <span style="font-size:10px; letter-spacing:.14em;">{{ ui.devLabel }}</span>
+    </div>
+
+    <div onClick="{{ ui.onToggleTerm }}" style="display:flex; align-items:center; gap:6px; padding:6px 11px; border:1px solid {{ ui.hair }}; border-radius:8px; cursor:pointer; background:{{ ui.termBtnBg }};" title="Toggle terminal ( ~ )">
+      <span style="font-size:13px; color:{{ ui.accent }}; font-weight:600;">~</span>
+      <span style="font-size:10px; letter-spacing:.1em; color:#a8a394;">REPL</span>
+    </div>
+  </div>
+
+  <!-- ======== STATUS / BREADCRUMB / TICKER ======== -->
+  <div style="flex:0 0 auto; display:flex; align-items:center; gap:14px; height:26px; padding:0 18px; border-bottom:1px solid {{ ui.hair }}; background:#0a0d12; font-size:10px; color:#7c8090; z-index:30;">
+    <div style="display:flex; align-items:center; gap:7px;">
+      <span style="color:#5a6072;">path</span>
+      <sc-for list="{{ breadcrumb }}" as="b" hint-placeholder-count="3">
+        <span style="color:{{ b.color }};">{{ b.label }}</span>
+      </sc-for>
+    </div>
+    <div style="width:1px; height:12px; background:{{ ui.hair }};"></div>
+    <div style="display:flex; align-items:center; gap:7px; color:#5a6072;">
+      <span style="color:#5bb39a;">●</span> {{ stats.nodes }} nodes
+      <span style="color:#7c93b4;">●</span> {{ stats.edges }} edges
+      <span style="color:#5bb39a;">✓</span> {{ stats.mastered }} mastered
+      <span style="display:flex; align-items:center; gap:4px; color:{{ saved.color }}; margin-left:2px;" title="your graph, reflections & mastery autosave to this browser">⛁ {{ saved.label }}</span>
+    </div>
+    <div style="flex:1 1 auto;"></div>
+    <sc-if value="{{ ui.showTicker }}" hint-placeholder-val="{{ true }}">
+      <div key="{{ lastEvent.key }}" style="display:flex; align-items:center; gap:8px; animation:tick .4s ease; color:#9a9486;">
+        <span style="color:{{ ui.accent }}; font-size:9px;">▸ runtime</span>
+        <span style="color:#bdb7a8;">{{ lastEvent.text }}</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <!-- dev warning banner -->
+  <sc-if value="{{ devMode }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:7px 18px; background:linear-gradient(90deg,#2a1d12,#1d1610); border-bottom:1px solid #6b4a22; color:#e0a24e; font-size:10.5px; letter-spacing:.04em; z-index:29;">
+      <span style="font-size:12px;">⚠</span>
+      <span style="font-weight:500;">DEV MODE —</span>
+      <span style="color:#cbb89a; font-family:'Spectral',serif; font-style:italic; font-size:12px;">You are now editing the structure of the learning system, not just consuming it.</span>
+    </div>
+  </sc-if>
+
+  <!-- ======== BODY ======== -->
+  <div style="flex:1 1 auto; display:flex; min-height:0; position:relative;">
+
+    <!-- LEFT RAIL -->
+    <div style="flex:0 0 232px; display:flex; flex-direction:column; border-right:1px solid {{ ui.hair }}; background:#0b0e13; min-height:0;">
+      <!-- BOOK rail -->
+      <sc-if value="{{ rail.book }}" hint-placeholder-val="{{ true }}">
+        <div style="padding:16px 15px; overflow-y:auto;">
+          <div style="font-size:9px; letter-spacing:.2em; color:#6b6f63; text-transform:uppercase; margin-bottom:12px;">Chapters</div>
+          <sc-for list="{{ chapters }}" as="c" hint-placeholder-count="3">
+            <div onClick="{{ c.onClick }}" style="{{ c.style }}">
+              <div style="font-size:9px; color:{{ c.numColor }}; letter-spacing:.1em;">{{ c.num }}</div>
+              <div style="font-family:'Spectral',serif; font-size:13.5px; line-height:1.25; color:{{ c.titleColor }}; margin-top:2px;">{{ c.title }}</div>
+              <div style="font-size:9px; color:#6b6f63; margin-top:4px;">{{ c.meta }}</div>
+            </div>
+          </sc-for>
+          <div style="height:1px; background:{{ ui.hair }}; margin:16px 0;"></div>
+          <div onClick="{{ rail.onShowStructure }}" style="display:flex; align-items:center; gap:8px; padding:9px 11px; border:1px solid {{ ui.hair }}; border-radius:8px; cursor:pointer; background:#0e1219;" style-hover="border-color:#4a5468;">
+            <span style="color:#7c93b4;">⬡</span>
+            <span style="font-size:11px; color:#c2bcad;">show structure</span>
+          </div>
+          <div style="margin-top:14px; padding:11px; border:1px dashed {{ ui.hair }}; border-radius:8px;">
+            <div style="font-size:8.5px; letter-spacing:.16em; color:#6b6f63; text-transform:uppercase; margin-bottom:6px;">mastery of this chapter</div>
+            <div style="height:5px; border-radius:4px; background:#ffffff12; overflow:hidden; position:relative;">
+              <div style="height:100%; width:{{ rail.visitedPct }}; background:#3a5d52; position:absolute; inset:0;"></div>
+              <div style="height:100%; width:{{ rail.masteredPct }}; background:linear-gradient(90deg,#5bb39a,#d4b15f); position:absolute; inset:0;"></div>
+            </div>
+            <div style="font-size:9px; color:#8a8576; margin-top:6px;">{{ rail.progressLabel }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- GRAPH rail -->
+      <sc-if value="{{ rail.graph }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:16px 15px; overflow-y:auto;">
+          <div onClick="{{ rail.onReturnBook }}" style="display:flex; align-items:center; gap:8px; padding:8px 11px; border:1px solid {{ ui.hair }}; border-radius:8px; cursor:pointer; background:#0e1219; margin-bottom:16px;" style-hover="border-color:#9c4a32;">
+            <span style="color:#d4b15f;">←</span><span style="font-size:11px; color:#c2bcad; font-family:'Spectral',serif; font-style:italic;">return to book</span>
+          </div>
+          <div style="font-size:9px; letter-spacing:.2em; color:#6b6f63; text-transform:uppercase; margin-bottom:9px;">Minimap</div>
+          <div style="border:1px solid {{ ui.hair }}; border-radius:8px; background:#080a0e; padding:6px; margin-bottom:16px;">
+            <svg viewBox="0 0 196 124" style="width:100%; display:block;">
+              <sc-for list="{{ minimap.dots }}" as="d" hint-placeholder-count="6">
+                <circle cx="{{ d.x }}" cy="{{ d.y }}" r="{{ d.r }}" fill="{{ d.color }}" stroke="{{ d.stroke }}" stroke-width="{{ d.sw }}"></circle>
+              </sc-for>
+            </svg>
+          </div>
+          <div style="font-size:9px; letter-spacing:.2em; color:#6b6f63; text-transform:uppercase; margin-bottom:9px;">Node types</div>
+          <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:16px;">
+            <sc-for list="{{ legend }}" as="l" hint-placeholder-count="5">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="width:9px; height:9px; border-radius:3px; background:{{ l.color }}; flex:0 0 auto;"></span>
+                <span style="font-size:10px; color:#9a9486; letter-spacing:.06em;">{{ l.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size:9px; letter-spacing:.2em; color:#6b6f63; text-transform:uppercase; margin-bottom:9px;">State</div>
+          <div style="display:flex; flex-direction:column; gap:5px;">
+            <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:11px; color:#5bb39a;">✓</span><span style="font-size:10px; color:#9a9486;">mastered (green ring)</span></div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:11px; color:#d4b15f;">➜</span><span style="font-size:10px; color:#9a9486;">suggested next (rule)</span></div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:11px; color:#cf6a4f;">~</span><span style="font-size:10px; color:#9a9486;">confusing (needs simplify)</span></div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:11px; color:#b59bd6;">✦</span><span style="font-size:10px; color:#9a9486;">ai · suggestion</span></div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ======== STAGE ======== -->
+    <div style="flex:1 1 auto; display:flex; min-width:0; position:relative;">
+
+      <!-- BOOK PANE -->
+      <sc-if value="{{ pane.book }}" hint-placeholder-val="{{ true }}">
+        <div style="{{ pane.bookWrap }}">
+          <div style="flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:30px; min-height:0; position:relative; background:radial-gradient(120% 90% at 50% 38%, #1b2029 0%, #0c0f14 70%);">
+            <!-- warm glow under book -->
+            <div style="position:absolute; width:560px; height:380px; border-radius:50%; background:radial-gradient(circle, #d4b15f22, transparent 68%); filter:blur(30px); pointer-events:none;"></div>
+            <div key="{{ book.pageKey }}" style="position:relative; display:flex; width:min(100%, {{ book.spreadW }}); aspect-ratio:1.46/1; max-height:100%; border-radius:5px; box-shadow:0 30px 70px -20px #000000bb, 0 0 0 1px #00000060; transform-style:preserve-3d; animation:pageTurn .55s cubic-bezier(.3,.7,.3,1);">
+              <!-- left page (chapter face) -->
+              <div style="flex:0 0 41%; border-radius:5px 0 0 5px; padding:42px 30px; position:relative; background:linear-gradient(105deg,#e7decb,#efe7d6); box-shadow:inset -14px 0 26px -16px #00000055; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden;">
+                <div style="position:absolute; inset:0; opacity:.5; pointer-events:none; background:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22120%22 height=%22120%22 filter=%22url(%23n)%22 opacity=%220.045%22/></svg>');"></div>
+                <div style="position:relative;">
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.32em; color:#9c4a32; text-transform:uppercase;">{{ book.chapNum }}</div>
+                  <div style="width:34px; height:1px; background:#b08d3f; margin:16px 0 22px;"></div>
+                  <div style="font-family:'Spectral',serif; font-weight:500; font-size:30px; line-height:1.12; color:#2a241b; letter-spacing:.005em;">{{ book.title }}</div>
+                </div>
+                <div style="position:relative;">
+                  <div style="font-family:'Spectral',serif; font-style:italic; font-size:14.5px; line-height:1.5; color:#5a4f3f;">{{ book.epigraph }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.2em; color:#9c4a32; text-transform:uppercase; margin-top:12px;">— {{ book.epigraphBy }}</div>
+                </div>
+                <div style="position:relative; display:flex; align-items:center; gap:7px; font-family:'IBM Plex Mono',monospace; font-size:8.5px; color:#a08a6a; letter-spacing:.12em;">
+                  <span style="color:#b08d3f;">❦</span> rendered from {{ book.pathLen }} graph nodes
+                </div>
+              </div>
+              <!-- spine -->
+              <div style="flex:0 0 2px; background:linear-gradient(#bfae8e,#8a7a5e,#bfae8e); box-shadow:0 0 16px #00000040;"></div>
+              <!-- right page (prose) -->
+              <div style="flex:1 1 auto; border-radius:0 5px 5px 0; padding:46px 44px 30px; position:relative; background:linear-gradient(255deg,#f2ebd9,#ece3d0); box-shadow:inset 14px 0 26px -16px #00000044; overflow-y:auto;">
+                <div style="position:absolute; inset:0; opacity:.5; pointer-events:none; background:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n2%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22120%22 height=%22120%22 filter=%22url(%23n2)%22 opacity=%220.04%22/></svg>');"></div>
+                <div style="position:absolute; top:20px; right:30px; font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:.2em; color:#b3a285; text-transform:uppercase;">{{ book.runningHead }}</div>
+                <div style="position:relative; max-width:60ch;">
+                  <sc-for list="{{ book.paragraphs }}" as="p" hint-placeholder-count="4">
+                    <div style="{{ p.style }}">
+                      <sc-if value="{{ p.mastered }}" hint-placeholder-val="{{ false }}">
+                        <span style="float:right; margin:3px 0 4px 12px; font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.14em; color:#7d6a3a; border:1px solid #b08d3f88; border-radius:11px; padding:2px 8px; text-transform:uppercase; animation:sealIn .4s ease;">✓ mastered</span>
+                      </sc-if>
+                      <sc-if value="{{ p.kicker }}" hint-placeholder-val="{{ false }}">
+                        <span style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.16em; color:#9c4a32; text-transform:uppercase; display:block; margin-bottom:4px;">{{ p.kicker }}</span>
+                      </sc-if>
+                      <sc-if value="{{ p.hasDrop }}" hint-placeholder-val="{{ false }}">
+                        <span style="float:left; font-family:'Spectral',serif; font-weight:600; font-size:58px; line-height:.82; padding:6px 10px 0 0; color:#9c4a32;">{{ p.drop }}</span>
+                      </sc-if>
+                      <sc-for list="{{ p.runs }}" as="r" hint-placeholder-count="3">
+                        <sc-if value="{{ r.isConcept }}" hint-placeholder-val="{{ false }}">
+                          <span onClick="{{ r.onClick }}" title="{{ r.title }}" style="color:#9c4a32; cursor:pointer; font-weight:500; background:linear-gradient(#d4b15f55,#d4b15f55) bottom/100% 0.08em no-repeat; padding-bottom:1px; transition:background-size .15s;" style-hover="background:linear-gradient(#d4b15f99,#d4b15f99) bottom/100% 100% no-repeat;">{{ r.t }}</span>
+                        </sc-if>
+                        <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}">
+                          <span>{{ r.t }}</span>
+                        </sc-if>
+                      </sc-for>
+                    </div>
+                  </sc-for>
+                </div>
+                <!-- folio + turn -->
+                <div style="position:relative; display:flex; align-items:center; justify-content:space-between; margin-top:26px; padding-top:12px; border-top:1px solid #cbbd9e;">
+                  <div onClick="{{ book.onPrev }}" style="{{ book.prevStyle }}">‹ prev</div>
+                  <div style="font-family:'IBM Plex Mono',monospace; font-size:9px; color:#a08a6a; letter-spacing:.2em;">{{ book.folio }}</div>
+                  <div onClick="{{ book.onNext }}" style="{{ book.nextStyle }}">next ›</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- split divider -->
+      <sc-if value="{{ pane.split }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:0 0 1px; background:linear-gradient(#0c0f14,#3a4456,#0c0f14);"></div>
+      </sc-if>
+
+      <!-- GRAPH PANE -->
+      <sc-if value="{{ pane.graph }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ pane.graphWrap }}">
+          <div ref="{{ setStageRef }}" onPointerDown="{{ graph.onCanvasDown }}" style="position:absolute; inset:0; overflow:hidden; background:#0a0d12; background-image:radial-gradient(#ffffff0a 1px, transparent 1px); background-size:26px 26px; cursor:{{ graph.canvasCursor }};">
+            <!-- vignette -->
+            <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 100% at 50% 50%, transparent 55%, #06080b 100%);"></div>
+            <div style="position:absolute; left:50%; top:50%; width:{{ graph.worldW }}px; height:{{ graph.worldH }}px; transform:translate(-50%,-50%) scale({{ graph.scale }}); transform-origin:center;">
+              <!-- edges -->
+              <svg width="{{ graph.worldW }}" height="{{ graph.worldH }}" style="position:absolute; left:0; top:0; overflow:visible;">
+                <sc-for list="{{ graph.edges }}" as="e" hint-placeholder-count="8">
+                  <g>
+                    <path d="{{ e.d }}" stroke="{{ e.color }}" stroke-width="{{ e.width }}" stroke-dasharray="{{ e.dash }}" fill="none" style="{{ e.flowStyle }}" opacity="{{ e.opacity }}"></path>
+                    <polygon points="{{ e.arrow }}" fill="{{ e.color }}" opacity="{{ e.opacity }}"></polygon>
+                    <text x="{{ e.lx }}" y="{{ e.ly }}" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.08em; fill:{{ e.labelColor }}; stroke:#0a0d12; stroke-width:3px; paint-order:stroke;">{{ e.label }}</text>
+                  </g>
+                </sc-for>
+              </svg>
+              <!-- nodes -->
+              <sc-for list="{{ graph.nodes }}" as="n" hint-placeholder-count="8">
+                <div onPointerDown="{{ n.onDown }}" style="{{ n.style }}">
+                  <div style="display:flex; align-items:center; gap:6px; margin-bottom:3px;">
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.12em; color:{{ n.typeColor }}; font-weight:500;">{{ n.code }}</span>
+                    <span style="flex:1 1 auto;"></span>
+                    <sc-if value="{{ n.sealOn }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:10px; color:{{ n.sealColor }}; animation:sealIn .4s ease;">{{ n.sealGlyph }}</span>
+                    </sc-if>
+                    <span style="font-size:10px; color:{{ n.byColor }};">{{ n.byGlyph }}</span>
+                  </div>
+                  <div style="font-family:'Spectral',serif; font-size:13px; line-height:1.1; color:#ece6d8; white-space:nowrap;">{{ n.label }}</div>
+                  <div style="height:3px; border-radius:3px; margin-top:6px; background:#ffffff14; overflow:hidden;">
+                    <div style="height:100%; width:{{ n.conf }}; background:{{ n.confColor }};"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+            <!-- graph hint -->
+            <div style="position:absolute; left:16px; bottom:14px; font-size:9.5px; color:#4e5567; letter-spacing:.05em; pointer-events:none;">drag nodes · click to inspect · click empty canvas to create · gold path = current chapter · green ring = mastered</div>
+          </div>
+
+          <!-- INSPECTOR -->
+          <sc-if value="{{ inspector.open }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; top:14px; right:14px; bottom:14px; width:288px; display:flex; flex-direction:column; border:1px solid {{ ui.hair }}; border-radius:11px; background:#0e1219ee; backdrop-filter:blur(8px); box-shadow:0 20px 50px -16px #000000aa; animation:fadeUp .25s ease; overflow:hidden; z-index:6;">
+              <div style="padding:15px 16px 13px; border-bottom:1px solid {{ ui.hair }};">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:.16em; color:{{ inspector.typeColor }}; border:1px solid {{ inspector.typeColor }}55; padding:2px 6px; border-radius:5px;">{{ inspector.code }}</span>
+                  <sc-if value="{{ inspector.mastered }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:.12em; color:#5bb39a; border:1px solid #5bb39a66; padding:2px 7px; border-radius:5px; animation:sealIn .4s ease;">✓ MASTERED</span>
+                  </sc-if>
+                  <span style="flex:1 1 auto;"></span>
+                  <span onClick="{{ inspector.onClose }}" style="cursor:pointer; color:#6b6f63; font-size:13px;" style-hover="color:#e8e2d4;">✕</span>
+                </div>
+                <div style="font-family:'Spectral',serif; font-size:21px; color:#f3eee2; margin-top:11px; line-height:1.1;">{{ inspector.label }}</div>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:8px; font-size:9px; color:#8a8576; letter-spacing:.06em;">
+                  <span style="color:{{ inspector.byColor }};">{{ inspector.byGlyph }} {{ inspector.by }}</span>
+                  <span>·</span>
+                  <span>{{ inspector.trust }}</span>
+                </div>
+              </div>
+              <div style="flex:1 1 auto; overflow-y:auto; padding:15px 16px;">
+                <sc-if value="{{ inspector.aiFlag }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex; align-items:center; gap:7px; padding:7px 9px; border:1px dashed #b59bd655; border-radius:7px; margin-bottom:13px; background:#b59bd610;">
+                    <span style="color:#b59bd6;">✦</span><span style="font-size:9.5px; color:#b9add0; line-height:1.3;">AI-generated · treat as a suggestion, not fact.</span>
+                  </div>
+                </sc-if>
+                <div style="font-family:'Spectral',serif; font-size:14.5px; line-height:1.55; color:#cfc9ba;">{{ inspector.summary }}</div>
+
+                <div style="font-size:8.5px; letter-spacing:.2em; color:#6b6f63; text-transform:uppercase; margin:18px 0 9px;">mastery state</div>
+                <div style="display:flex; flex-direction:column; gap:9px;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; color:#8a8576; margin-bottom:3px;"><span>confidence</span><span>{{ inspector.confPct }}</span></div>
+                    <div style="height:4px; border-radius:3px; background:#ffffff12; overflow:hidden;"><div style="height:100%; width:{{ inspector.confW }}; background:#5bb39a;"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex; justify-content:space-between; font-size:9px; color:#8a8576; margin-bottom:3px;"><span>confusion</span><span>{{ inspector.confuPct }}</span></div>
+                    <div style="height:4px; border-radius:3px; background:#ffffff12; overflow:hidden;"><div style="height:100%; width:{{ inspector.confuW }}; background:#cf6a4f;"></div></div>
+                  </div>
+                </div>
+                <div style="margin-top:11px; padding:8px 10px; border:1px solid {{ ui.hair }}; border-radius:7px; background:#0c0f14; display:flex; align-items:center; gap:8px;">
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:9px; color:{{ ui.accent }};">learn()</span>
+                  <span style="font-family:'Spectral',serif; font-style:italic; font-size:12.5px; color:#cfc9ba; line-height:1.3;">{{ inspector.learnState }}</span>
+                </div>
+
+                <div style="font-size:8.5px; letter-spacing:.2em; color:#6b6f63; text-transform:uppercase; margin:18px 0 9px;">linked concepts</div>
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <sc-for list="{{ inspector.links }}" as="lk" hint-placeholder-count="2">
+                    <div onClick="{{ lk.onClick }}" style="display:flex; align-items:center; gap:8px; padding:7px 9px; border:1px solid {{ ui.hair }}; border-radius:7px; cursor:pointer; background:#0c0f14;" style-hover="border-color:#4a5468;">
+                      <span style="font-size:8px; color:#6b6f63;">{{ lk.dir }}</span>
+                      <span style="font-size:9px; color:{{ lk.relColor }}; font-style:italic; font-family:'Spectral',serif;">{{ lk.rel }}</span>
+                      <span style="flex:1 1 auto;"></span>
+                      <span style="font-size:11.5px; color:#cfc9ba; font-family:'Spectral',serif;">{{ lk.label }}</span>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ inspector.noLinks }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:10px; color:#5a6072; font-style:italic;">no links yet</div>
+                  </sc-if>
+                </div>
+              </div>
+              <!-- actions -->
+              <div style="flex:0 0 auto; padding:12px 14px; border-top:1px solid {{ ui.hair }}; display:flex; flex-direction:column; gap:7px; background:#0b0e13;">
+                <div style="display:flex; gap:7px;">
+                  <div onClick="{{ inspector.onReflect }}" style="flex:1; text-align:center; padding:9px; border-radius:8px; cursor:pointer; background:linear-gradient(#9c4a32,#7d3a27); color:#f3eee2; font-size:11px; letter-spacing:.06em;" style-hover="filter:brightness(1.1);">↻ Reflect</div>
+                  <div onClick="{{ inspector.onAssess }}" style="flex:1; text-align:center; padding:9px; border-radius:8px; cursor:pointer; border:1px solid #5bb39a55; color:#9fd9c6; font-size:11px;" style-hover="border-color:#5bb39a; background:#5bb39a10;">✶ Assess</div>
+                </div>
+                <div style="display:flex; gap:7px;">
+                  <div onClick="{{ inspector.onAsk }}" style="flex:1; text-align:center; padding:9px; border-radius:8px; cursor:pointer; border:1px solid {{ ui.hair }}; color:#c2bcad; font-size:11px;" style-hover="border-color:#6fb6cf;">? Ask</div>
+                  <sc-if value="{{ inspector.showSimplify }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ inspector.onSimplify }}" style="flex:1; text-align:center; padding:9px; border-radius:8px; cursor:pointer; border:1px solid #d4b15f55; color:#d8c489; font-size:11px;" style-hover="border-color:#d4b15f; background:#d4b15f10;">⤓ Simplify</div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ devMode }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ inspector.onDelete }}" style="text-align:center; padding:7px; border-radius:8px; cursor:pointer; border:1px solid #cf6a4f44; color:#cf6a4f; font-size:10px; letter-spacing:.08em;" style-hover="background:#cf6a4f18;">⌫ delete node</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- ======== TERMINAL DRAWER ======== -->
+    <sc-if value="{{ termOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; left:0; right:0; bottom:0; height:42%; display:flex; flex-direction:column; background:#080a0e; border-top:1px solid {{ ui.accent }}66; box-shadow:0 -22px 50px -10px #000000cc, 0 -1px 24px {{ ui.accent }}33; animation:termRise .28s cubic-bezier(.3,.8,.3,1); z-index:50;">
+        <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid #ffffff10;">
+          <span style="color:{{ ui.accent }}; font-size:12px;">~</span>
+          <span style="font-size:10px; letter-spacing:.18em; color:#8a8576; text-transform:uppercase;">REPL · {{ ui.devLabel }}</span>
+          <span style="font-size:9px; color:#5a6072;">natural language or commands · try: assess "anger"</span>
+          <span style="flex:1 1 auto;"></span>
+          <span onClick="{{ term.onClear }}" style="font-size:9px; color:#6b6f63; cursor:pointer; letter-spacing:.1em;" style-hover="color:#cf6a4f;">clear</span>
+          <span onClick="{{ ui.onToggleTerm }}" style="font-size:13px; color:#6b6f63; cursor:pointer;" style-hover="color:#e8e2d4;">✕</span>
+        </div>
+        <div ref="{{ setTermScrollRef }}" style="flex:1 1 auto; overflow-y:auto; padding:12px 16px; font-size:12.5px; line-height:1.65;">
+          <sc-for list="{{ term.lines }}" as="ln" hint-placeholder-count="4">
+            <div style="white-space:pre-wrap; word-break:break-word; display:block;">
+              <sc-for list="{{ ln.segs }}" as="s" hint-placeholder-count="1">
+                <span style="{{ s.style }}">{{ s.t }}</span>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:11px 16px; border-top:1px solid #ffffff10; background:#0a0d12;">
+          <span style="color:{{ term.promptColor }}; font-size:13px; font-weight:600;">{{ term.prompt }}</span>
+          <input ref="{{ setTermInputRef }}" value="{{ term.input }}" onInput="{{ term.onInput }}" onKeyDown="{{ term.onKey }}" placeholder="{{ term.placeholder }}" spellcheck="false" style="flex:1 1 auto; background:transparent; border:none; outline:none; color:#e8e2d4; font-family:'IBM Plex Mono',monospace; font-size:12.5px; caret-color:#e0a24e;"></input>
+          <span style="width:8px; height:15px; background:{{ ui.accent }}; animation:blink 1.1s step-end infinite; opacity:{{ term.cursorOn }};"></span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ======== REFLECTION CARD ======== -->
+    <sc-if value="{{ reflect.open }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#06080bcc; backdrop-filter:blur(4px); z-index:60; animation:fadeUp .25s ease;" onClick="{{ reflect.onBackdrop }}">
+        <div onClick="{{ reflect.stop }}" style="width:min(92%,540px); border-radius:8px; overflow:hidden; box-shadow:0 40px 90px -20px #000000dd; background:linear-gradient(160deg,#efe7d6,#e7decb);">
+          <div style="padding:24px 30px 8px; display:flex; align-items:center; gap:10px;">
+            <span style="color:#9c4a32; font-size:14px;">{{ reflect.glyph }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.24em; color:#9c4a32; text-transform:uppercase;">{{ reflect.kicker }}</span>
+            <span style="flex:1 1 auto;"></span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.1em; color:#a08a6a;">on “{{ reflect.nodeLabel }}”</span>
+          </div>
+          <div style="padding:6px 30px 18px;">
+            <div style="font-family:'Spectral',serif; font-size:24px; line-height:1.3; color:#2a241b; letter-spacing:.005em;">{{ reflect.question }}</div>
+            <input ref="{{ setReflectRef }}" value="{{ reflect.input }}" onInput="{{ reflect.onInput }}" onKeyDown="{{ reflect.onKey }}" placeholder="answer honestly, in your own words…" style="width:100%; margin-top:18px; padding:13px 15px; border-radius:7px; border:1px solid #c4b48f; background:#fbf7ec; outline:none; color:#2a241b; font-family:'Spectral',serif; font-size:16px; font-style:italic;" style-focus="border-color:#9c4a32;"></input>
+            <div style="font-size:10.5px; color:#8a7a5e; margin-top:9px; font-family:'IBM Plex Mono',monospace; letter-spacing:.02em;">{{ reflect.helper }}</div>
+          </div>
+          <div style="display:flex; gap:9px; padding:14px 30px 24px;">
+            <div onClick="{{ reflect.onSubmit }}" style="{{ reflect.submitStyle }}">{{ reflect.submitLabel }}</div>
+            <div onClick="{{ reflect.onCancel }}" style="padding:12px 18px; border-radius:8px; cursor:pointer; border:1px solid #c4b48f; color:#6a5d49; font-size:13px; font-family:'IBM Plex Mono',monospace;" style-hover="background:#00000008;">{{ reflect.cancelLabel }}</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ======== CONFIRM ======== -->
+    <sc-if value="{{ confirm.open }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#06080bdd; backdrop-filter:blur(4px); z-index:70;">
+        <div style="width:min(90%,440px); border:1px solid {{ confirm.borderColor }}; border-radius:11px; background:#11151c; box-shadow:0 40px 90px -20px #000; padding:24px 26px;">
+          <div style="display:flex; align-items:center; gap:9px; margin-bottom:13px;">
+            <span style="font-size:16px; color:{{ confirm.accent }};">{{ confirm.glyph }}</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; color:{{ confirm.accent }}; text-transform:uppercase;">{{ confirm.kicker }}</span>
+          </div>
+          <div style="font-family:'Spectral',serif; font-size:17px; line-height:1.5; color:#e8e2d4;">{{ confirm.text }}</div>
+          <div style="display:flex; gap:9px; justify-content:flex-end; margin-top:22px;">
+            <div onClick="{{ confirm.onNo }}" style="padding:10px 18px; border-radius:8px; cursor:pointer; border:1px solid {{ ui.hair }}; color:#c2bcad; font-size:11px;" style-hover="border-color:#6b6f63;">{{ confirm.noLabel }}</div>
+            <div onClick="{{ confirm.onYes }}" style="padding:10px 18px; border-radius:8px; cursor:pointer; background:{{ confirm.accent }}; color:#11151c; font-size:11px; font-weight:600; letter-spacing:.04em;" style-hover="filter:brightness(1.1);">{{ confirm.yesLabel }}</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:900},&quot;startMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;book&quot;,&quot;options&quot;:[&quot;book&quot;,&quot;graph&quot;,&quot;split&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Setup&quot;,&quot;label&quot;:&quot;Start in mode&quot;},&quot;maxReflectionDepth&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;min&quot;:1,&quot;max&quot;:4,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Behavior&quot;,&quot;label&quot;:&quot;Reflection depth&quot;},&quot;showRuntimeTicker&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behavior&quot;,&quot;label&quot;:&quot;Show runtime ticker&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this._n = 0;
+    this.maxDepth = props.maxReflectionDepth ?? 2;
+    this.worldW = 1320; this.worldH = 760;
+    this.STORE_KEY = 'ikos_state_v1';
+    this.typeMeta = {
+      concept:   { c:'#7c93b4', code:'CON' },
+      emotion:   { c:'#cf6a4f', code:'EMO' },
+      reflection:{ c:'#b59bd6', code:'REF' },
+      skill:     { c:'#5bb39a', code:'SKL' },
+      scenario:  { c:'#d18fb0', code:'SCN' },
+      principle: { c:'#d4b15f', code:'PRN' },
+      question:  { c:'#6fb6cf', code:'QST' },
+      source:    { c:'#9a9486', code:'SRC' },
+      assessment:{ c:'#c98a5a', code:'ASM' },
+    };
+    this.relLabel = { causes:'causes', leads_to:'leads to', depends_on:'depends on', contradicts:'contradicts', supports:'supports', explains:'explains', requires:'requires', symbolizes:'symbolizes', simplifies:'simplifies', deepens:'deepens', loops_back_to:'loops back' };
+    this.relColor = { causes:'#8a7d6a', leads_to:'#5d6b86', depends_on:'#6f83a8', contradicts:'#cf6a4f', supports:'#5bb39a', explains:'#6fb6cf', requires:'#9a8fb0', symbolizes:'#d18fb0', simplifies:'#9a9486', deepens:'#b59bd6', loops_back_to:'#b59bd6' };
+    this.roleColor = { prompt:'#e0a24e', cmd:'#ece6d8', ok:'#5bb39a', sys:'#6fb6cf', dim:'#6b7382', warn:'#d4b15f', err:'#cf6a4f', node:'#7c93b4', head:'#b59bd6', em:'#d4b15f', book:'#cfa17a' };
+
+    // ---- Rules (spec: type Rule) — evaluated live by the runtime ----
+    this.rules = [
+      { id:'on_mastery→unlock_next', trigger:'on_mastery', condition:'confidence>=0.8 && confusion<=0.25', action:'unlock_next',  safety:{ canModifyGraph:false, canModifyUserState:true,  requiresDevMode:false } },
+      { id:'on_confusion→simplify',  trigger:'on_confusion', condition:'confusion>=0.6',                    action:'offer_simplify', safety:{ canModifyGraph:false, canModifyUserState:false, requiresDevMode:false } },
+    ];
+
+    this.questionFor = {
+      anger:'When anger last rose in you, what were you truly protecting?',
+      reaction:'What usually happens in the space between your anger and your reaction?',
+      reflection:'What do you notice when you pause instead of act?',
+      self_control:'Where does your control end and another person’s freedom begin?',
+      virtue:'If no one would ever know, who would you choose to be?',
+      judgment:'What did you decide the event meant — before you checked if it was true?',
+      impression:'Strip away the story. What, exactly, did your senses actually report?',
+      space:'How wide is your pause right now — a blink, a breath, a walk?',
+      discipline:'What small practice, repeated, would make this easier under pressure?',
+    };
+
+    const seed = this.buildSeed();
+    this._chapters = seed.chapters;
+
+    const startMode = props.startMode || 'book';
+    this.state = {
+      mode: startMode === 'split' ? 'book' : startMode,
+      split: startMode === 'split',
+      devMode: false,
+      termOpen: false,
+      nodes: seed.nodes, edges: seed.edges, positions: seed.positions,
+      chapterIdx: 1,
+      voice: 'stoic',
+      selected: null,
+      focus: null,
+      reflect: null,
+      confirm: null,
+      suggestNext: null,
+      confusedNode: null,
+      lastAdded: null,
+      savedFlash: false,
+      lastEvent: { text: 'runtime ready · graph is the source of truth · book ch.2', key: 0 },
+      evKey: 1,
+      graphScale: 0.62,
+      tracePath: [],
+      term: { input:'', awaiting:null, hist:[], hIdx:-1, lines: [
+        { segs:[{t:'Iterative Knowledge OS', role:'sys'},{t:'  ·  runtime v0.5', role:'dim'}] },
+        { segs:[{t:'three renderers, one graph — ', role:'dim'},{t:'book', role:'book'},{t:' renders the path · ', role:'dim'},{t:'graph', role:'node'},{t:' renders the structure · ', role:'dim'},{t:'terminal', role:'prompt'},{t:' renders the command.', role:'dim'}] },
+        { segs:[{t:'autosave on', role:'ok'},{t:' — your graph, reflections & mastery persist in this browser · ', role:'dim'},{t:'reset', role:'em'},{t:' restores the seed.', role:'dim'}] },
+        { segs:[{t:'type ', role:'dim'},{t:'help', role:'em'},{t:'  ·  every command mutates the shared state.  press ', role:'dim'},{t:'~', role:'em'},{t:' to dismiss.', role:'dim'}] },
+      ] },
+    };
+
+    this.hydrateInitial();
+  }
+
+  buildSeed(){
+    const N = (id, label, type, summary, content, extra) => ({ id, label, type, summary, content: content||'', difficulty: extra?.d||2, tags: extra?.tags||[], createdBy: extra?.by||'system', trustLevel: extra?.trust||'official', state: { visited: extra?.v||false, mastered: extra?.m||false, confidence: extra?.conf??0.08, confusionScore: extra?.confu??0.0 } });
+    const nodes = {};
+    [
+      N('impression','First Impression','concept','The raw, pre-verbal report of the senses — phantasia — before the mind has ruled on it.',
+        "Before judgment, before anger, there is the bare impression — the raw report of the senses. A tone, a glance, a message left unanswered. The [[judgment:impression]] arrives uninvited; it is not yet true or false, only present.", {d:2,conf:.34,confu:.1,v:true}),
+      N('judgment','Judgment','concept','The verdict the mind adds to an impression. Per Epictetus, our judgments — not events — disturb us.',
+        "The mind rarely lets an impression stand alone. In an instant it lays a judgment over the raw signal: this is an insult, this is a threat. We are disturbed not by things, Epictetus held, but by our [[judgment:judgments]] about them. Move the judgment, and the disturbance moves with it.", {d:3,conf:.26,confu:.2,v:true}),
+      N('anger','Anger','emotion','The body’s verdict that a boundary was crossed. Useful as a signal, dangerous as a command.',
+        "Anger is not the enemy. It is energy — the body’s verdict that something is wrong, demanding to be set right. The error is never the feeling; the error is the unwatched [[reaction:reaction]] that follows it, as though the heat itself had decided the deed.", {d:2,conf:.55,confu:.2,v:true}),
+      N('reaction','Automatic Reaction','concept','The unexamined response that fires after a feeling, before reflection can intervene.',
+        "An automatic reaction is a decision made without you. The hand moves, the word leaves, the bridge burns — and only afterward does the self arrive, blinking, to survey the [[consequence:consequence]]. Reaction is fast because it is borrowed: an old pattern, running in your name.", {d:2,conf:.40,confu:.35,v:true}),
+      N('consequence','Consequence','scenario','The downstream result of a reaction — often outlasting the feeling that caused it.',
+        "Every reaction casts a consequence longer than the moment that made it. The apology takes a week; the regret, a year.", {d:2,conf:.2,confu:.1}),
+      N('space','The Space Between','principle','The pause between stimulus and response — small, trainable, and the seat of all freedom.',
+        "Between the impression and the act lies a space — narrow, almost invisible, yet wide enough to stand in. The whole of practice is learning to find that gap, and to widen it by a breath.", {d:3,conf:.3,confu:.15,v:true}),
+      N('reflection','Reflection','skill','Turning attention inward in the pause — questioning the judgment before acting on it.',
+        "Reflection is the act of stepping into that space and asking one question before moving: is the story I am about to act on actually true? To reflect is to interrupt the borrowed pattern and reclaim the decision as your own.", {d:3,conf:.3,confu:.25,v:true}),
+      N('self_control','Self-Control','skill','The trained capacity to feel fully yet choose freely. Temperance, not suppression.',
+        "What you practice in the space hardens, over time, into self-control — not the clenched suppression of feeling, but the quiet authority to feel fully and still choose. The Stoics called it temperance: power answerable to reason.", {d:4,conf:.12,confu:.1}),
+      N('discipline','Discipline','principle','The repeated practice that makes virtue available under pressure.',
+        "Self-control is not summoned; it is built. Discipline is the daily, unglamorous repetition that lays down the path, so that under pressure the right action is already familiar.", {d:3,conf:.18,confu:.1}),
+      N('virtue','Virtue','principle','Character in accordance with reason — for the Stoics, the only true good.',
+        "And self-control, repeated until it is no longer effort but character, is virtue — the Stoic’s only true good. The reward of mastering the space is not a life without anger. It is a self that anger no longer governs. [[anger:Return]] now, and meet the feeling again — changed.", {d:5,conf:.05,confu:.05}),
+    ].forEach(n => nodes[n.id] = n);
+
+    const E = (s,t,rel,w,ex) => ({ id: 'e_'+s+'_'+t, source:s, target:t, relationship:rel, weight:w, explanation:ex||'' });
+    const edges = [
+      E('impression','judgment','leads_to',.7),
+      E('judgment','anger','causes',.7),
+      E('anger','reaction','leads_to',.9),
+      E('reaction','consequence','causes',.8),
+      E('reaction','reflection','deepens',.55),
+      E('reflection','self_control','leads_to',.7),
+      E('self_control','virtue','leads_to',.8),
+      E('discipline','self_control','supports',.7),
+      E('space','reaction','contradicts',.5),
+      E('space','reflection','symbolizes',.5),
+      E('anger','judgment','depends_on',.6),
+      E('virtue','anger','loops_back_to',.4,'Return to the same anger transformed — the recursive loop.'),
+    ];
+
+    const positions = {
+      impression:{x:150,y:150}, judgment:{x:150,y:380}, anger:{x:330,y:265},
+      reaction:{x:560,y:300}, consequence:{x:560,y:520}, space:{x:660,y:120},
+      reflection:{x:820,y:300}, self_control:{x:1040,y:300}, discipline:{x:1040,y:520},
+      virtue:{x:1230,y:240},
+    };
+
+    const chapters = [
+      { id:'ch1', num:'Chapter I', title:'The Sting of First Impressions', path:['impression','judgment','anger'], epigraph:'It is not things that disturb us, but our opinions about things.', by:'Epictetus', objective:'See the judgment hidden inside the feeling.' },
+      { id:'ch2', num:'Chapter II', title:'The Space Between Anger and Action', path:['anger','reaction','reflection','self_control','virtue'], epigraph:'You have power over your mind — not outside events. Realize this, and you will find strength.', by:'Marcus Aurelius', objective:'Find the space between anger and action.' },
+      { id:'ch3', num:'Chapter III', title:'The Inner Citadel', path:['self_control','discipline','virtue'], epigraph:'No man is free who is not master of himself.', by:'Epictetus', objective:'Build the discipline that makes virtue habitual.' },
+    ];
+
+    return { nodes, edges, positions, chapters };
+  }
+
+  uid(p){ return p + '_' + (++this._n); }
+  chapter(){ return this._chapters[this.state.chapterIdx]; }
+  chaptersArr(){ return this._chapters; }
+
+  // ---------- PERSISTENCE ----------
+  loadSaved(){
+    try {
+      const raw = localStorage.getItem(this.STORE_KEY);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || !d.nodes || !Object.keys(d.nodes).length) return null;
+      return d;
+    } catch(e) { return null; }
+  }
+  hydrateInitial(){
+    const saved = this.loadSaved();
+    if (!saved) return;
+    if (Array.isArray(saved.chapters) && saved.chapters.length) this._chapters = saved.chapters;
+    if (typeof saved.nCounter === 'number') this._n = saved.nCounter;
+    this.state.nodes = saved.nodes || this.state.nodes;
+    this.state.edges = saved.edges || this.state.edges;
+    this.state.positions = saved.positions || this.state.positions;
+    this.state.chapterIdx = (typeof saved.chapterIdx === 'number') ? saved.chapterIdx : this.state.chapterIdx;
+    this.state.voice = saved.voice || this.state.voice;
+    this.state.devMode = !!saved.devMode;
+    this.state.lastEvent = { text: 'session restored from local save · ' + Object.keys(saved.nodes||{}).length + ' nodes · ' + (saved.edges||[]).length + ' edges', key: 0 };
+  }
+  persist(){
+    try {
+      const s = this.state;
+      const payload = { v:1, nCounter:this._n, nodes:s.nodes, edges:s.edges, positions:s.positions, chapters:this._chapters, chapterIdx:s.chapterIdx, voice:s.voice, devMode:s.devMode, savedAt:Date.now() };
+      localStorage.setItem(this.STORE_KEY, JSON.stringify(payload));
+      if (!this.state.savedFlash) this.setState({ savedFlash:true });
+      clearTimeout(this._flashT); this._flashT = setTimeout(() => this.setState({ savedFlash:false }), 1100);
+    } catch(e) {}
+  }
+  resetAll(){
+    try { localStorage.removeItem(this.STORE_KEY); } catch(e) {}
+    this._n = 0;
+    const seed = this.buildSeed();
+    this._chapters = seed.chapters;
+    this.setState({ nodes:seed.nodes, edges:seed.edges, positions:seed.positions, chapterIdx:1, voice:'stoic', selected:null, focus:null, reflect:null, suggestNext:null, confusedNode:null, lastAdded:null, tracePath:[], term:{ ...this.state.term, awaiting:null } });
+    this.pushEvent('runtime ▸ graph reset to seed · local save cleared');
+  }
+
+  componentDidMount(){
+    this._onKey = (e) => {
+      if (e.key === '`' || e.key === '~') {
+        if (this.state.reflect || this.state.confirm) return;
+        e.preventDefault(); this.toggleTerm(); return;
+      }
+      if (e.key === 'Escape') {
+        if (this.state.confirm) return this.setState({ confirm:null });
+        if (this.state.reflect) return this.cancelReflect();
+        if (this.state.termOpen) return this.setState({ termOpen:false });
+        if (this.state.selected) return this.setState({ selected:null });
+      }
+    };
+    window.addEventListener('keydown', this._onKey);
+    if (this.stageEl && window.ResizeObserver) {
+      this._ro = new ResizeObserver(() => this.measure());
+      this._ro.observe(this.stageEl);
+    }
+    this.measure();
+    this._prev = this.snapshot();
+  }
+  componentWillUnmount(){ window.removeEventListener('keydown', this._onKey); if (this._ro) this._ro.disconnect(); clearTimeout(this._saveT); clearTimeout(this._flashT); }
+  snapshot(){ const s = this.state; return { termOpen:s.termOpen, reflect:s.reflect, termLines:s.term.lines, nodes:s.nodes, edges:s.edges, positions:s.positions, chapterIdx:s.chapterIdx, voice:s.voice, devMode:s.devMode }; }
+  componentDidUpdate(prevProps){
+    // NOTE: this runtime invokes componentDidUpdate(prevProps) only — no prevState — so we diff against our own snapshot.
+    const prev = this._prev || {};
+    if (this.state.termOpen && !prev.termOpen && this.termInputEl) setTimeout(()=>this.termInputEl && this.termInputEl.focus(), 30);
+    if (this.state.reflect && !prev.reflect && this.reflectEl) setTimeout(()=>this.reflectEl && this.reflectEl.focus(), 30);
+    if (this.termScrollEl && this.state.term.lines !== prev.termLines) this.termScrollEl.scrollTop = this.termScrollEl.scrollHeight;
+    if (prev.nodes !== this.state.nodes || prev.edges !== this.state.edges || prev.positions !== this.state.positions || prev.chapterIdx !== this.state.chapterIdx || prev.voice !== this.state.voice || prev.devMode !== this.state.devMode) {
+      clearTimeout(this._saveT); this._saveT = setTimeout(() => this.persist(), 250);
+    }
+    this._prev = this.snapshot();
+  }
+
+  setStageRef = (el) => { if (el && el !== this.stageEl){ this.stageEl = el; if (this._ro) this._ro.observe(el); this.measure(); } };
+  setTermInputRef = (el) => { this.termInputEl = el; };
+  setTermScrollRef = (el) => { this.termScrollEl = el; };
+  setReflectRef = (el) => { this.reflectEl = el; };
+
+  measure = () => {
+    if (!this.stageEl) return;
+    const r = this.stageEl.getBoundingClientRect();
+    if (!r.width) return;
+    const s = Math.min((r.width - 60) / this.worldW, (r.height - 60) / this.worldH, 1.0);
+    const scale = Math.max(0.34, s);
+    if (Math.abs(scale - this.state.graphScale) > 0.005) this.setState({ graphScale: scale });
+  };
+
+  pushEvent(text){ this.setState(s => ({ lastEvent: { text, key: s.evKey }, evKey: s.evKey + 1 })); }
+
+  // ---- mode / chrome ----
+  setMode(m){
+    if (m === 'split') { this.setState({ split:true, mode:'book' }); setTimeout(this.measure, 60); }
+    else { this.setState({ mode:m, split:false }); if (m==='graph') setTimeout(this.measure, 60); }
+  }
+  toggleSplit(){ this.setState(s => ({ split: !s.split })); setTimeout(this.measure, 60); }
+  revealFor(pref){ if (this.state.split) { setTimeout(this.measure, 40); return; } this.setMode(pref); }
+  toggleTerm(){ this.setState(s => ({ termOpen: !s.termOpen })); }
+  setVoice(v){ this.setState({ voice:v }); this.pushEvent('book re-rendered · voice = ' + v); }
+
+  toggleDev(){
+    if (this.state.devMode){ this.setState({ devMode:false }); this.pushEvent('safe mode · official + reviewed only'); return; }
+    this.setState({ confirm: {
+      kind:'dev', glyph:'⚠', kicker:'unlock dev mode', accent:'#e0a24e', borderColor:'#6b4a22', noLabel:'stay in safe mode', yesLabel:'I understand — unlock',
+      text:'You are about to edit the structure of the learning system, not just consume it. Custom rules, local graph mutation, and module export will be enabled.',
+    }});
+  }
+
+  // ---- mastery / learn loop ----
+  clamp01(x){ return Math.max(0, Math.min(1, x)); }
+  applyMastery(id, dConf, dConfu, opts){
+    opts = opts || {};
+    const n = this.state.nodes[id]; if (!n) return;
+    const st = n.state || { visited:false, mastered:false, confidence:0, confusionScore:0 };
+    const confidence = this.clamp01((st.confidence||0) + dConf);
+    const confusionScore = this.clamp01((st.confusionScore||0) + dConfu);
+    const mastered = confidence >= 0.8 && confusionScore <= 0.25;
+    const justMastered = mastered && !st.mastered;
+    this.setState(s => ({ nodes: { ...s.nodes, [id]: { ...s.nodes[id], state: { ...s.nodes[id].state, visited:true, confidence, confusionScore, mastered } } } }));
+    if (opts.silent) return;
+    if (justMastered) this.fireRules('on_mastery', id);
+    else if (confusionScore >= 0.6) this.fireRules('on_confusion', id);
+  }
+  downstreamOf(id){ const e = this.state.edges.find(e => e.source===id && ['leads_to','deepens','requires','supports'].includes(e.relationship)); return e ? this.state.nodes[e.target] : null; }
+  fireRules(trigger, id){
+    const node = this.state.nodes[id]; if (!node) return;
+    this.rules.filter(r => r.trigger===trigger).forEach(r => {
+      if (r.action === 'unlock_next'){
+        const next = this.downstreamOf(id);
+        this.setState({ suggestNext: next ? next.id : null });
+        this.pushEvent('⚙ rule '+r.trigger+' ▸ mastered “'+node.label+'”'+(next?' → suggests next: '+next.label:''));
+        if (this.state.termOpen) this.termOut([{t:'  ⚙ rule ',role:'sys'},{t:r.trigger,role:'head'},{t:' fired · ',role:'dim'},{t:'✓ mastered ',role:'ok'},{t:node.label,role:'node'}].concat(next?[{t:'  → next: ',role:'dim'},{t:next.label,role:'node'}]:[]));
+      } else if (r.action === 'offer_simplify'){
+        this.setState({ confusedNode: id });
+        this.pushEvent('⚙ rule '+r.trigger+' ▸ high confusion on “'+node.label+'” → offer simplify');
+        if (this.state.termOpen) this.termOut([{t:'  ⚙ rule ',role:'sys'},{t:r.trigger,role:'head'},{t:' fired · confusion high on ',role:'dim'},{t:node.label,role:'node'},{t:' · try ',role:'dim'},{t:'simplify "'+node.label+'"',role:'em'}]);
+      }
+    });
+  }
+  simplifyNode(id){
+    const n = this.state.nodes[id]; if (!n) return;
+    this.setVoice('simple');
+    this.setState({ selected:id, focus:id, confusedNode:null });
+    this.applyMastery(id, 0.04, -0.2, { silent:true });
+    this.pushEvent('learn() ▸ simplify “'+n.label+'” · confusion eased · book voice = plain');
+  }
+  assessNode(id){
+    const n = this.state.nodes[id]; if (!n) return;
+    this.setState({ reflect: { mode:'assess', nodeId:id, rootLabel:n.label, nodeLabel:n.label, question:'In your own words: what is “'+n.label+',” really — and why does it matter?', depth:0, input:'' }, selected:id, focus:id });
+  }
+  evaluateAssessment(id, ans){
+    const n = this.state.nodes[id]; if (!n) return;
+    const words = ans.split(/\s+/).filter(Boolean).length;
+    const substantive = words >= 8 || /because|means|when|so that|in order|pause|space|judg|choos|control|reflect|virtue/i.test(ans);
+    if (substantive){
+      this.applyMastery(id, 0.32, -0.28);
+      this.pushEvent('evaluateUnderstanding ▸ understood “'+n.label+'” · confidence ↑ · deepen()');
+      if (this.state.termOpen) this.termOut([{t:'  ✓ evaluateUnderstanding → understood · ',role:'ok'},{t:n.label,role:'node'},{t:' · confidence↑ confusion↓ → deepen()',role:'dim'}]);
+    } else {
+      this.applyMastery(id, 0.03, 0.22);
+      this.pushEvent('evaluateUnderstanding ▸ “'+n.label+'” not yet clear · learn() → simplify()');
+      if (this.state.termOpen){ this.termOut([{t:'  … evaluateUnderstanding → not yet · ',role:'warn'},{t:n.label,role:'node'},{t:' · confusion↑ → simplify()',role:'dim'}]); this.termOut([{t:'    try ',role:'dim'},{t:'simplify "'+n.label+'"',role:'em'},{t:' or reflect on it.',role:'dim'}]); }
+    }
+  }
+  visitChapter(idx){
+    const ch = this._chapters[idx]; if (!ch) return;
+    this.setState(s => {
+      const nodes = { ...s.nodes };
+      ch.path.forEach(id => { const n = nodes[id]; if (n && !n.state.visited){ nodes[id] = { ...n, state: { ...n.state, visited:true, confidence: this.clamp01((n.state.confidence||0)+0.02) } }; } });
+      return { nodes };
+    });
+  }
+  askReset(){ this.setState({ confirm: { kind:'reset', glyph:'⌫', kicker:'reset graph', accent:'#cf6a4f', borderColor:'#5a2a22', noLabel:'keep my work', yesLabel:'reset to seed', text:'This clears your local save and restores the original Stoic seed graph. Your added nodes, reflections, and mastery progress will be erased.' } }); }
+  confirmYes(){
+    const c = this.state.confirm; if (!c) return;
+    if (c.kind === 'reset'){ this.setState({ confirm:null }); this.resetAll(); return; }
+    this.setState({ confirm:null, devMode:true }); this.pushEvent('⚠ dev mode unlocked · structure editing enabled');
+  }
+
+  // ---- graph ops ----
+  setNode(id, patch){ this.setState(s => ({ nodes: { ...s.nodes, [id]: { ...s.nodes[id], ...patch } } })); }
+  selectNode(id){ this.setState(s => ({ selected:id, focus:id, suggestNext: s.suggestNext===id?null:s.suggestNext, confusedNode: s.confusedNode===id?null:s.confusedNode })); }
+  openConcept(id){
+    if (!this.state.nodes[id]) return;
+    this.setState({ split:true, selected:id, focus:id });
+    setTimeout(this.measure, 60);
+    this.pushEvent('book → graph · focused “' + this.state.nodes[id].label + '”');
+  }
+  closeInspector(){ this.setState({ selected:null }); }
+
+  onCanvasDown = (e) => {
+    if (e.target !== e.currentTarget && !e.target.dataset?.canvas) return;
+    const start = { x:e.clientX, y:e.clientY };
+    const up = (ev) => {
+      window.removeEventListener('pointerup', up); window.removeEventListener('pointermove', mv);
+      if (Math.hypot(ev.clientX-start.x, ev.clientY-start.y) > 4) return;
+      const rect = this.stageEl.getBoundingClientRect();
+      const sc = this.state.graphScale;
+      const wx = (ev.clientX - rect.left - rect.width/2)/sc + this.worldW/2;
+      const wy = (ev.clientY - rect.top - rect.height/2)/sc + this.worldH/2;
+      this.promptNewNode(wx, wy);
+    };
+    let moved = false;
+    const mv = (ev) => { if (Math.hypot(ev.clientX-start.x, ev.clientY-start.y) > 4) moved = true; };
+    window.addEventListener('pointerup', up); window.addEventListener('pointermove', mv);
+  };
+
+  promptNewNode(x, y){
+    const label = window.prompt('New concept — name it:');
+    if (!label || !label.trim()) return;
+    this.addNode(label.trim(), 'concept', { by:'user', trust:'local', x, y, select:true });
+    this.pushEvent('runtime ▸ +1 node “'+label.trim()+'” (user)');
+  }
+
+  addNode(label, type, opts){
+    opts = opts || {};
+    const id = this.uid('n');
+    const node = { id, label, type: this.typeMeta[type]?type:'concept', summary: opts.summary || (label + ' — a concept you introduced. Reflect on it to deepen its meaning.'), content: opts.content || '', difficulty: opts.d||2, tags:[], createdBy: opts.by||'user', trustLevel: opts.trust||'local', state:{ visited:true, mastered:false, confidence: opts.conf??0.05, confusionScore:0 } };
+    const pos = { x: opts.x ?? (this.worldW/2 + (Math.random()*120-60)), y: opts.y ?? (this.worldH/2 + (Math.random()*120-60)) };
+    this.setState(s => ({ nodes:{ ...s.nodes, [id]:node }, positions:{ ...s.positions, [id]:pos }, lastAdded:id, selected: opts.select? id : s.selected }));
+    return id;
+  }
+
+  connect(a, b, rel){
+    rel = (rel||'leads_to').replace(/[\s-]+/g,'_');
+    if (!this.relLabel[rel]) rel = 'leads_to';
+    const A = this.findNode(a), B = this.findNode(b);
+    if (!A || !B) return { ok:false, msg:'node not found' };
+    const id = 'e_'+A.id+'_'+B.id+'_'+(++this._n);
+    const edge = { id, source:A.id, target:B.id, relationship:rel, weight:.6, explanation:'' };
+    this.setState(s => ({ edges:[...s.edges, edge] }));
+    return { ok:true, edge, A, B };
+  }
+
+  findNode(q){
+    if (!q) return null;
+    const s = this.state.nodes;
+    if (s[q]) return s[q];
+    const norm = (x)=>String(x).toLowerCase().replace(/[^a-z]/g,'');
+    const nq = norm(q);
+    return Object.values(s).find(n => norm(n.label)===nq) || Object.values(s).find(n => norm(n.label).includes(nq) && nq.length>2) || null;
+  }
+
+  deleteNode(id){
+    this.setState(s => {
+      const nodes = { ...s.nodes }; delete nodes[id];
+      const positions = { ...s.positions }; delete positions[id];
+      const edges = s.edges.filter(e => e.source!==id && e.target!==id);
+      this._chapters[s.chapterIdx] = { ...this._chapters[s.chapterIdx], path: this._chapters[s.chapterIdx].path.filter(p=>p!==id) };
+      return { nodes, positions, edges, selected:null };
+    });
+    this.pushEvent('node deleted · edges pruned · book re-rendered');
+  }
+
+  // ---- node from reflection answer ----
+  labelFromAnswer(ans){
+    const a = ans.trim();
+    let m = a.match(/assume[s]?\s+(?:that\s+)?([a-z' -]{2,40})/i);
+    if (m) return 'Assumption of ' + this.titleCase(m[1].replace(/\b(i|they|he|she|it|you)\b/gi,'').trim() || m[1]);
+    m = a.match(/\b(?:i|they)\s+(?:feel|fear|think|believe|want|need)\s+([a-z' -]{2,40})/i);
+    if (m) return this.titleCase(m[1].trim());
+    const words = a.replace(/^[^a-z0-9]+/i,'').split(/\s+/).slice(0,4).join(' ');
+    return this.titleCase(words || 'Reflection');
+  }
+  titleCase(s){ return s.replace(/\w[^\s-]*/g, w => w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).replace(/\bOf\b/g,'of'); }
+
+  reflectionContent(ans, parent){
+    const q = '“' + ans.trim().replace(/^["']|["']$/g,'') + '”';
+    if (parent && parent.id==='reaction')
+      return 'Beneath the [[reaction:reaction]] hides what you named: ' + q + '. You did not choose it; it arrived dressed as fact. But it is a [[judgment:judgment]] laid over the bare impression — and a judgment can be questioned. Name it, and it loosens its grip on the hand.';
+    return 'In the pause, you found this: ' + q + '. It was always there, beneath the ' + (parent?parent.label.toLowerCase():'feeling') + ' — unspoken, and therefore in charge. Spoken now, it becomes something you can examine rather than merely obey.';
+  }
+
+  reflectNode(id){
+    const node = this.state.nodes[id];
+    if (!node) return;
+    this.setState({ reflect: { mode:'reflect', nodeId:id, rootLabel:node.label, nodeLabel:node.label, question: this.questionFor[id] || ('What lies beneath “'+node.label+'” that you have not yet named?'), depth:0, input:'' }, selected:id, focus:id });
+  }
+  cancelReflect(){ this.setState({ reflect:null }); }
+  onReflectInput = (e) => { const v = e.target.value; this.setState(s => ({ reflect: s.reflect ? { ...s.reflect, input:v } : null })); };
+  onReflectKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); this.submitReflection(false); } };
+
+  submitReflection(goDeeper){
+    const R = this.state.reflect; if (!R) return;
+    const ans = (R.input||'').trim();
+    if (!ans) { if (this.reflectEl) this.reflectEl.focus(); return; }
+    if (R.mode === 'assess'){ this.evaluateAssessment(R.nodeId, ans); this.setState({ reflect:null }); return; }
+    const parent = this.state.nodes[R.nodeId];
+    const label = this.labelFromAnswer(ans);
+    const content = this.reflectionContent(ans, parent);
+    const newId = this.addNode(label, 'reflection', { by:'user', trust:'local', summary: 'A reflection you wrote: “'+ans+'”', content, conf:.45, select:false });
+
+    const ppos = this.state.positions[R.nodeId];
+    if (ppos) this.setState(s => ({ positions: { ...s.positions, [newId]: { x: ppos.x, y: ppos.y + 150 } } }));
+
+    this.afterReflectionWire(R.nodeId, newId);
+    this.applyMastery(R.nodeId, 0.18, -0.12);
+
+    const next = R.depth + 1;
+    if (goDeeper && next < this.maxDepth) {
+      this.setState({ reflect: { mode:'reflect', nodeId:newId, rootLabel:R.rootLabel, nodeLabel:label, question: this.questionFor[newId] || ('And beneath “'+label+'” — what is there?'), depth: next, input:'' }, selected:newId, focus:newId });
+    } else {
+      this.setState({ reflect:null, selected:newId, focus:newId });
+    }
+    this.pushEvent('runtime ▸ +1 node “'+label+'” · +edges · mastery↑ · book ch.'+ (this.state.chapterIdx+1) +' re-rendered');
+  }
+
+  afterReflectionWire(parentId, newId){
+    const ch = this.chapter();
+    const pIdx = ch.path.indexOf(parentId);
+    this.setState(s => {
+      let edges = [...s.edges];
+      if (pIdx > 0) {
+        const prev = ch.path[pIdx-1];
+        edges = edges.filter(e => !(e.source===prev && e.target===parentId));
+        edges.push({ id:'e_'+prev+'_'+newId+'_'+(++this._n), source:prev, target:newId, relationship:'leads_to', weight:.7 });
+        edges.push({ id:'e_'+newId+'_'+parentId+'_'+(++this._n), source:newId, target:parentId, relationship:'leads_to', weight:.7 });
+        const np = [...ch.path]; np.splice(pIdx, 0, newId);
+        this._chapters[s.chapterIdx] = { ...ch, path: np };
+      } else {
+        edges.push({ id:'e_'+parentId+'_'+newId+'_'+(++this._n), source:parentId, target:newId, relationship:'deepens', weight:.6 });
+      }
+      return { edges };
+    });
+  }
+
+  askNode(id){
+    const node = this.state.nodes[id]; if (!node) return;
+    const content = 'Why “'+node.label.toLowerCase()+'” matters: it is the hinge on which the next move turns. Master it and the chain downstream becomes a choice; ignore it and the chain runs on its own.';
+    const newId = this.addNode('Why “'+node.label+'” matters', 'reflection', { by:'ai', trust:'experimental', summary: content, content, conf:.3, select:true });
+    const ppos = this.state.positions[id];
+    if (ppos) this.setState(s => ({ positions: { ...s.positions, [newId]:{ x: ppos.x+170, y: ppos.y-110 } } }));
+    this.setState(s => ({ edges:[...s.edges, { id:'e_'+newId+'_'+id+'_'+(++this._n), source:newId, target:id, relationship:'explains', weight:.5 }] }));
+    this.pushEvent('runtime ▸ ai attached explanation (suggestion) to “'+node.label+'”');
+  }
+
+  // ---- TERMINAL ----
+  onTermInput = (e) => { const v = e.target.value; this.setState(s => ({ term: { ...s.term, input:v } })); };
+  onTermKey = (e) => {
+    const t = this.state.term;
+    if (e.key === 'Enter') { e.preventDefault(); this.runLine(t.input); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); this.histNav(-1); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); this.histNav(1); return; }
+  };
+  histNav(dir){
+    const t = this.state.term; if (!t.hist.length) return;
+    let i = t.hIdx === -1 ? (dir<0 ? t.hist.length-1 : -1) : t.hIdx + dir;
+    i = Math.max(0, Math.min(t.hist.length-1, i));
+    this.setState(s => ({ term: { ...s.term, hIdx:i, input: t.hist[i] } }));
+  }
+  termOut(segs){ this.setState(s => ({ term: { ...s.term, lines: [...s.term.lines, { segs }] } })); }
+  termClear(){ this.setState(s => ({ term: { ...s.term, lines: [] } })); }
+
+  runLine(raw){
+    const input = (raw||'').trim();
+    this.setState(s => ({ term: { ...s.term, input:'', hIdx:-1, hist: input? [...s.term.hist, input] : s.term.hist } }));
+    if (!input) return;
+    const aw = this.state.term.awaiting;
+    this.termOut([{ t: (aw? (aw.type==='assess'?'reply ':'answer ') : '> '), role:'prompt' }, { t: input, role:'cmd' }]);
+    if (aw) { this.handleAwaiting(input, aw); return; }
+    this.dispatch(input);
+  }
+
+  handleAwaiting(input, aw){
+    if (aw.type === 'assess'){ this.evaluateAssessment(aw.nodeId, input); this.setState(s => ({ term: { ...s.term, awaiting:null } })); return; }
+    if (aw.type === 'reflect') {
+      const parent = this.state.nodes[aw.nodeId];
+      const label = this.labelFromAnswer(input);
+      const content = this.reflectionContent(input, parent);
+      const newId = this.addNode(label, 'reflection', { by:'user', trust:'local', summary:'A reflection you wrote: “'+input+'”', content, conf:.45 });
+      const ppos = this.state.positions[aw.nodeId]; if (ppos) this.setState(s=>({ positions:{...s.positions,[newId]:{x:ppos.x,y:ppos.y+150}} }));
+      this.afterReflectionWire(aw.nodeId, newId);
+      this.applyMastery(aw.nodeId, 0.18, -0.12);
+      this.termOut([{ t:'  ✓ created ', role:'ok' }, { t:label, role:'node' }, { t:'  · connected · mastery↑ · book re-rendered', role:'dim' }]);
+      this.pushEvent('runtime ▸ +1 node “'+label+'” · book re-rendered');
+      const next = aw.depth + 1;
+      if (next < aw.maxDepth) {
+        const q = this.questionFor[newId] || ('And beneath “'+label+'” — what is there?');
+        this.setState(s => ({ term: { ...s.term, awaiting: { type:'reflect', nodeId:newId, depth:next, maxDepth:aw.maxDepth } } }));
+        this.termOut([{ t:'  ↻ depth '+(next+1)+'/'+aw.maxDepth+'  ', role:'warn' }, { t:q, role:'book' }]);
+      } else {
+        this.setState(s => ({ term: { ...s.term, awaiting:null } }));
+        this.termOut([{ t:'  reflection complete · ', role:'dim' }, { t:'show graph', role:'em' }, { t:' to see the new structure.', role:'dim' }]);
+      }
+    }
+  }
+
+  dispatch(input){
+    const lc = input.toLowerCase();
+    let m;
+    if (/^(help|\?|commands)$/.test(lc)) return this.cmdHelp();
+    if (/^clear$/.test(lc)) return this.termClear();
+    if (/^(reset|wipe)(\s+graph|\s+all)?$/.test(lc)) { this.askReset(); return; }
+    if (/^(show\s+graph|graph|show\s+structure)$/.test(lc)) { this.setMode('graph'); return this.termOut([{t:'  rendering structure → graph mode', role:'node'}]); }
+    if (/^(show\s+book|book|read)$/.test(lc)) { this.setMode('book'); return this.termOut([{t:'  rendering path → book mode', role:'book'}]); }
+    if (/^split$/.test(lc)) { this.setState({split:true,mode:'book'}); setTimeout(this.measure,60); return this.termOut([{t:'  split view → book + graph, one state', role:'sys'}]); }
+    if (/^(render\s+book)/.test(lc)) {
+      const vm = lc.match(/--mode\s+(\w+)/) || lc.match(/\bas\s+(\w+)/);
+      if (vm) { const v = vm[1].startsWith('tech')?'technical':vm[1].startsWith('sto')?'stoic':vm[1].startsWith('sim')||vm[1].startsWith('plain')?'simple':null; if (v){ this.setVoice(v); this.setMode('book'); return this.termOut([{t:'  book re-rendered · voice = '+v, role:'book'}]); } }
+      this.setMode('book'); return this.termOut([{t:'  book re-rendered from current path', role:'book'}]);
+    }
+    if (/^mode\s+(dev|developer)$/.test(lc)) { if(!this.state.devMode) this.toggleDev(); return; }
+    if (/^mode\s+(safe)$/.test(lc)) { if(this.state.devMode) this.toggleDev(); return this.termOut([{t:'  safe mode',role:'ok'}]); }
+    if (/^(list|ls)(\s+nodes)?$/.test(lc)) return this.cmdList();
+    // add node
+    m = input.match(/^add\s+node\s+["“]?([^"”]+?)["”]?(?:\s+(?:as|type)\s+(\w+))?$/i);
+    if (m) { const id = this.addNode(m[1].trim(), (m[2]||'concept').toLowerCase(), { by:'user', trust:'local', select:true }); this.revealFor('graph'); this.pushEvent('runtime ▸ +1 node “'+m[1].trim()+'”'); return this.termOut([{t:'  ✓ node ', role:'ok'},{t:m[1].trim(), role:'node'},{t:'  added to graph', role:'dim'}]); }
+    // connect
+    m = input.match(/^connect\s+["“]?([^"”]+?)["”]?\s*(?:->|→|to)\s*["“]?([^"”]+?)["”]?(?:\s+as\s+["“]?([a-z_ -]+)["”]?)?$/i);
+    if (m) {
+      const r = this.connect(m[1].trim(), m[2].trim(), m[3]||'leads_to');
+      if (!r.ok) return this.termOut([{t:'  ✗ '+r.msg+': check '+m[1]+' / '+m[2], role:'err'}]);
+      this.pushEvent('runtime ▸ +1 edge '+r.A.label+' → '+r.B.label);
+      return this.termOut([{t:'  ✓ ', role:'ok'},{t:r.A.label, role:'node'},{t:'  —'+(this.relLabel[r.edge.relationship])+'→  ', role:'dim'},{t:r.B.label, role:'node'}]);
+    }
+    // assess / explain back
+    m = input.match(/^(?:assess|test|quiz|explain\s+back)\s+["“]?([^"”]+?)["”]?$/i);
+    if (m) {
+      const n = this.findNode(m[1].trim());
+      if (!n) return this.termOut([{t:'  ✗ no node “'+m[1].trim()+'”', role:'err'}]);
+      this.revealFor('graph'); this.setState({ selected:n.id, focus:n.id });
+      this.setState(s => ({ term: { ...s.term, awaiting: { type:'assess', nodeId:n.id } } }));
+      this.termOut([{t:'  ✶ assess ', role:'sys'},{t:n.label, role:'node'},{t:' — explain it back; the runtime evaluates your understanding.', role:'dim'}]);
+      this.termOut([{t:'  In your own words: what is “'+n.label+',” really?', role:'book'}]);
+      return;
+    }
+    // simplify
+    m = input.match(/^simplify\s+["“]?([^"”]+?)["”]?$/i);
+    if (m) { const n = this.findNode(m[1].trim()); if (!n) return this.termOut([{t:'  ✗ no node “'+m[1].trim()+'”', role:'err'}]); this.simplifyNode(n.id); this.revealFor('book'); return this.termOut([{t:'  ⤓ simplify() ▸ ', role:'sys'},{t:n.label, role:'node'},{t:' · plain voice · confusion eased', role:'dim'}]); }
+    // reflect / iterate
+    m = input.match(/^(?:reflect(?:\s+on)?|iterate)\s+(?:--node\s+)?["“]?([^"”]+?)["”]?(?:\s+(?:--depth|depth)\s+(\d+))?$/i);
+    if (m && /^(reflect|iterate)/.test(lc)) {
+      const node = this.findNode(m[1].trim());
+      if (!node) return this.termOut([{t:'  ✗ no node “'+m[1].trim()+'” — try ', role:'err'},{t:'list nodes', role:'em'}]);
+      const depth = Math.min(parseInt(m[2]||'1',10) || 1, this.maxDepth);
+      if (/^iterate/.test(lc)) return this.cmdIterate(node, depth);
+      this.revealFor('graph'); this.setState({selected:node.id, focus:node.id});
+      this.setState(s => ({ term: { ...s.term, awaiting: { type:'reflect', nodeId:node.id, depth:0, maxDepth:depth } } }));
+      this.termOut([{t:'  ↻ reflecting on ', role:'warn'},{t:node.label, role:'node'},{t:'  · depth 1/'+depth, role:'dim'}]);
+      this.termOut([{t:'  '+ (this.questionFor[node.id] || ('What lies beneath “'+node.label+'”?')), role:'book'}]);
+      return;
+    }
+    // dependencies
+    m = input.match(/^(?:show\s+)?(?:dependencies|deps)\s+["“]?([^"”]+)["”]?$/i);
+    if (m) return this.cmdDeps(m[1].trim());
+    // trace path
+    m = input.match(/^trace(?:\s+path)?\s+["“]?([^"”]+?)["”]?\s*(?:->|→|to)\s*["“]?([^"”]+?)["”]?$/i);
+    if (m) return this.cmdTrace(m[1].trim(), m[2].trim());
+    return this.nlFallback(input);
+  }
+
+  cmdHelp(){
+    const L = (a,b)=>({ segs:[{t:'  '+a, role:'em'},{t: '  '+b, role:'dim'}] });
+    this.setState(s => ({ term: { ...s.term, lines: [...s.term.lines,
+      { segs:[{t:'commands', role:'head'},{t:'  — natural language also works', role:'dim'}] },
+      L('show graph / show book / split ', 'switch renderer (same state)'),
+      L('render book --mode technical', 'rebuild the page in another voice (stoic·simple·technical)'),
+      L('add node "concept" as type   ', 'concept·emotion·reflection·skill·principle…'),
+      L('connect "A" -> "B" as causes ', 'create a typed edge'),
+      L('reflect "anger" --depth 2    ', 'answer prompts → reflection nodes → book updates'),
+      L('assess "anger" / explain back', 'evaluateUnderstanding → confidence↑ or simplify'),
+      L('simplify "judgment"          ', 'plain voice + ease confusion (the learn loop)'),
+      L('iterate --node anger --depth 3', 'auto-deepen a concept (ai · experimental)'),
+      L('show dependencies "self-control"', 'what a node rests on'),
+      L('trace "anger" -> "virtue"    ', 'shortest path, highlighted in the graph'),
+      L('list · mode dev · reset · clear', 'inventory · unlock editing · wipe save · clear log'),
+    ] } }));
+  }
+  cmdList(){
+    const segs = [{ t:'  '+Object.keys(this.state.nodes).length+' nodes:', role:'head' }];
+    this.setState(s => ({ term: { ...s.term, lines: [...s.term.lines, { segs }] } }));
+    Object.values(this.state.nodes).forEach(n => {
+      this.termOut([{t:'   '+this.typeMeta[n.type].code+' ', role:'dim'},{t:n.label, role:'node'},{t:'   '+(n.state?.mastered?'✓ ':'')+(n.createdBy==='system'?'◆':n.createdBy==='ai'?'✦':'✎')+' '+n.trustLevel, role:'dim'}]);
+    });
+  }
+  cmdDeps(q){
+    const node = this.findNode(q); if (!node) return this.termOut([{t:'  ✗ no node “'+q+'”', role:'err'}]);
+    const deps = this.state.edges.filter(e => e.source===node.id && ['depends_on','requires','supports'].includes(e.relationship))
+      .concat(this.state.edges.filter(e => e.target===node.id && ['depends_on','requires','supports','causes'].includes(e.relationship)));
+    this.revealFor('graph'); this.setState({ selected:node.id, focus:node.id });
+    this.termOut([{t:'  '+node.label, role:'head'},{t:'  rests on:', role:'dim'}]);
+    if (!deps.length) return this.termOut([{t:'   (no explicit dependencies — it stands on its own)', role:'dim'}]);
+    deps.forEach(e => { const other = e.source===node.id? this.state.nodes[e.target] : this.state.nodes[e.source]; const arrow = e.source===node.id?'—'+this.relLabel[e.relationship]+'→':'←'+this.relLabel[e.relationship]+'—'; this.termOut([{t:'   ├─ ', role:'dim'},{t:arrow+' ', role:'dim'},{t:other.label, role:'node'}]); });
+  }
+  cmdTrace(a, b){
+    const A = this.findNode(a), B = this.findNode(b);
+    if (!A || !B) return this.termOut([{t:'  ✗ check node names', role:'err'}]);
+    const adj = {}; this.state.edges.forEach(e => { (adj[e.source]=adj[e.source]||[]).push(e.target); });
+    const q = [[A.id]]; const seen = new Set([A.id]); let path = null;
+    while (q.length){ const p = q.shift(); const last = p[p.length-1]; if (last===B.id){ path=p; break; } (adj[last]||[]).forEach(nx=>{ if(!seen.has(nx)){ seen.add(nx); q.push([...p,nx]); } }); }
+    if (!path) return this.termOut([{t:'  no directed path '+A.label+' → '+B.label, role:'warn'}]);
+    this.revealFor('graph'); this.setState({ tracePath: path, focus:B.id });
+    const segs = [{t:'  ', role:'dim'}];
+    path.forEach((id,i)=>{ segs.push({t:this.state.nodes[id].label, role:'node'}); if(i<path.length-1) segs.push({t:'  →  ', role:'em'}); });
+    this.termOut(segs);
+    this.termOut([{t:'  path highlighted in graph · '+(path.length-1)+' steps', role:'dim'}]);
+  }
+  cmdIterate(node, depth){
+    this.revealFor('graph');
+    this.termOut([{t:'  iterating ', role:'warn'},{t:node.label, role:'node'},{t:' · depth '+depth+' · ', role:'dim'},{t:'ai · experimental', role:'head'}]);
+    let parentId = node.id; let ppos = this.state.positions[node.id] || {x:this.worldW/2,y:this.worldH/2};
+    const aspects = ['its hidden cost', 'its earliest cause', 'its opposite', 'what it protects', 'its smallest practice'];
+    for (let i=0;i<depth;i++){
+      const label = this.titleCase(node.label) + ' · ' + aspects[i % aspects.length];
+      const content = 'An automated iteration on '+node.label.toLowerCase()+': examining '+aspects[i%aspects.length]+'. Generated by the runtime — verify before trusting.';
+      const id = this.addNode(label, 'reflection', { by:'ai', trust:'experimental', summary:content, content, conf:.15 });
+      const px = ppos.x + 150, py = ppos.y + (i%2===0? -90 : 90) + i*8;
+      this.setState(s => ({ positions:{ ...s.positions, [id]:{x:px,y:py} }, edges:[...s.edges, { id:'e_'+parentId+'_'+id+'_'+(++this._n), source:parentId, target:id, relationship:'deepens', weight:.4 }] }));
+      this.termOut([{t:'   └─ +', role:'dim'},{t:label, role:'head'}]);
+      parentId = id; ppos = {x:px,y:py};
+    }
+    this.pushEvent('runtime ▸ iterate · +'+depth+' ai nodes (experimental)');
+  }
+
+  nlFallback(input){
+    const lc = input.toLowerCase();
+    let m = lc.match(/why\s+(?:does\s+)?(?:the\s+)?([a-z' -]+?)\s+(?:matter|important)/);
+    if (m){ const n = this.findNode(m[1]); if (n){ this.askNode(n.id); this.revealFor('graph'); return this.termOut([{t:'  ⤷ attached an explanation to ', role:'dim'},{t:n.label, role:'node'},{t:' (ai · suggestion)', role:'head'}]); } }
+    m = lc.match(/(?:what\s+is|define|explain|tell me about)\s+(?:the\s+)?["“]?([a-z' -]+?)["”]?\??$/);
+    if (m){ const n = this.findNode(m[1]); if (n){ this.setState({selected:n.id,focus:n.id}); this.revealFor('graph'); this.termOut([{t:'  '+n.label+' — ', role:'node'},{t:n.summary, role:'book'}]); return; } }
+    if (/reflect|think about|sit with/.test(lc)){ const words = lc.replace(/.*(?:reflect on|reflect|think about|sit with)\s+/,''); const n = this.findNode(words); if (n) return this.dispatch('reflect "'+n.label+'"'); }
+    const hit = Object.values(this.state.nodes).find(n => lc.includes(n.label.toLowerCase()));
+    if (hit){ this.setState({selected:hit.id,focus:hit.id}); this.revealFor('graph'); return this.termOut([{t:'  focused ', role:'dim'},{t:hit.label, role:'node'},{t:' · ', role:'dim'},{t:hit.summary, role:'book'}]); }
+    this.termOut([{t:'  I don’t hold that yet. ', role:'dim'},{t:'You build the meaning here — try:', role:'book'}]);
+    this.termOut([{t:'    add node "'+this.titleCase(input.split(/\s+/).slice(0,3).join(' '))+'"', role:'em'},{t:'   then ', role:'dim'},{t:'reflect', role:'em'},{t:' on it.', role:'dim'}]);
+  }
+
+  // ---------- RENDER ----------
+  renderRuns(text){
+    const runs = []; const re = /\[\[([^\]]+)\]\]/g; let last = 0, m;
+    while ((m = re.exec(text))){
+      if (m.index > last) runs.push({ t: text.slice(last, m.index), isText:true });
+      const spec = m[1]; const ci = spec.indexOf(':');
+      const id = ci>=0? spec.slice(0,ci) : spec;
+      const label = ci>=0? spec.slice(ci+1) : (this.state.nodes[id]? this.state.nodes[id].label : spec);
+      runs.push({ t: label, isConcept:true, concept:id, onClick: () => this.openConcept(id), title: 'open “'+(this.state.nodes[id]?this.state.nodes[id].label:id)+'” in graph' });
+      last = re.lastIndex;
+    }
+    if (last < text.length) runs.push({ t: text.slice(last), isText:true });
+    return runs;
+  }
+
+  paragraphsFor(ch, voice){
+    return ch.path.map((id, i) => {
+      const node = this.state.nodes[id]; if (!node) return null;
+      const isFirst = i === 0;
+      const justAdded = id === this.state.lastAdded;
+      const mastered = !!node.state?.mastered;
+      let runs, kicker = null, drop = '', hasDrop = false;
+      if (voice === 'technical'){
+        kicker = this.typeMeta[node.type].code + ' · ' + node.label;
+        runs = [{ t: node.summary, isText:true }];
+      } else if (voice === 'simple'){
+        runs = [{ t: node.summary, isText:true }];
+      } else {
+        const txt = node.content || node.summary;
+        runs = this.renderRuns(txt);
+        if (isFirst && runs[0] && runs[0].isText && runs[0].t){ hasDrop = true; drop = runs[0].t[0]; runs = [{ ...runs[0], t: runs[0].t.slice(1) }, ...runs.slice(1)]; }
+      }
+      const style = 'position:relative; font-family:\'Spectral\',serif; font-size:16.5px; line-height:1.72; color:#33291d; margin-bottom:15px; letter-spacing:.004em; text-align:justify; hyphens:auto; animation:'+(justAdded?'paraReveal .5s ease':'none')+'; '+(justAdded?'background:linear-gradient(#d4b15f30,#d4b15f00); border-radius:4px; padding:4px 7px; margin-left:-7px; box-shadow:-2px 0 0 #9c4a32;':'');
+      return { nodeId:id, runs, kicker, drop, hasDrop, mastered, style, justAdded };
+    }).filter(Boolean);
+  }
+
+  renderVals(){
+    const s = this.state;
+    const tm = this.typeMeta;
+    const accent = s.devMode ? '#e0a24e' : '#d4b15f';
+    const hair = s.devMode ? '#3a2c1a' : '#ffffff14';
+    const ch = this.chapter();
+    const chapters = this._chapters;
+
+    // ---- chrome ----
+    const baseMode = { padding:'6px 13px', borderRadius:'7px', cursor:'pointer', fontSize:'11px', letterSpacing:'.08em' };
+    const modeBtn = (id, label, title) => {
+      const isOn = id==='split' ? s.split : (s.mode===id && !s.split);
+      return { id, label, title, onClick: () => this.setMode(id),
+        style: isOn ? { ...baseMode, background: accent, color:'#11151c', fontWeight:600 } : { ...baseMode, color:'#9a9486' } };
+    };
+    const baseVoice = { padding:'4px 9px', borderRadius:'5px', cursor:'pointer', fontSize:'9.5px', letterSpacing:'.06em' };
+    const voiceBtn = (id,label) => ({ id, label, onClick:()=>this.setVoice(id), style: s.voice===id ? { ...baseVoice, background:'#9c4a32', color:'#f3eee2' } : { ...baseVoice, color:'#8a8576' } });
+
+    const ui = {
+      accent, hair,
+      barBg: s.devMode ? 'linear-gradient(#1a140d,#15110a)' : '#11151c',
+      diamondSpin: (s.mode==='graph'?'45deg':'0deg'),
+      modes: [ modeBtn('book','Book','narrative renderer'), modeBtn('graph','Graph','structure renderer'), modeBtn('split','Split','both, one state') ],
+      showVoices: (s.mode==='book' || s.split),
+      voices: [ voiceBtn('stoic','stoic'), voiceBtn('simple','plain'), voiceBtn('technical','technical') ],
+      devGlyph: s.devMode ? '⚠' : '🛡',
+      devLabel: s.devMode ? 'DEV MODE' : 'SAFE MODE',
+      devPill: s.devMode
+        ? { display:'flex', alignItems:'center', gap:'7px', padding:'6px 11px', borderRadius:'8px', cursor:'pointer', background:'#e0a24e1f', border:'1px solid #e0a24e66', color:'#e0a24e' }
+        : { display:'flex', alignItems:'center', gap:'7px', padding:'6px 11px', borderRadius:'8px', cursor:'pointer', border:'1px solid '+hair, color:'#7c9a6e' },
+      onToggleDev: () => this.toggleDev(),
+      onToggleTerm: () => this.toggleTerm(),
+      termBtnBg: s.termOpen ? '#e0a24e1a' : '#0c0f14',
+      showTicker: (this.props.showRuntimeTicker ?? true),
+    };
+
+    const saved = { color: s.savedFlash ? '#5bb39a' : '#3f6b5c', label: s.savedFlash ? 'saved ✓' : 'autosave' };
+
+    // ---- breadcrumb ----
+    const modeLabel = s.split ? 'Split' : (s.mode==='book'?'Book':'Graph');
+    const breadcrumb = [ { label: modeLabel, color:'#8a8d9a' }, { label:'▸', color:'#4a4f5c' }, { label: ch.num.replace('Chapter ','Ch.'), color:'#8a8d9a' } ];
+    if (s.selected && s.nodes[s.selected]) { breadcrumb.push({ label:'▸', color:'#4a4f5c' }); breadcrumb.push({ label: s.nodes[s.selected].label, color: tm[s.nodes[s.selected].type].c }); }
+
+    // ---- rails ----
+    const railBook = (s.mode==='book' && !s.split) || s.split;
+    const chaptersUi = chapters.map((c,i)=>{ const active = i===s.chapterIdx; const cm = c.path.filter(id=>s.nodes[id]?.state?.mastered).length; return {
+      num: c.num, title: c.title, meta: c.path.length+' nodes · '+(cm?cm+' mastered':(active?'reading':'·')),
+      numColor: active?'#9c4a32':'#6b6f63', titleColor: active?'#f3eee2':'#9a9486',
+      onClick: () => { this.setState({ chapterIdx:i, tracePath:[], suggestNext:null }); this.visitChapter(i); this.setMode('book'); this.pushEvent('book ▸ '+c.num+' · re-rendered from '+c.path.length+' nodes'); },
+      style: active
+        ? { padding:'11px 12px', borderRadius:'9px', cursor:'pointer', marginBottom:'7px', background:'#9c4a3218', border:'1px solid #9c4a3240' }
+        : { padding:'11px 12px', borderRadius:'9px', cursor:'pointer', marginBottom:'7px', border:'1px solid transparent' }
+    }; });
+    const visitedCount = ch.path.filter(id => s.nodes[id]?.state?.visited).length;
+    const masteredCount = ch.path.filter(id => s.nodes[id]?.state?.mastered).length;
+
+    const mmDots = Object.keys(s.nodes).map(id => { const p = s.positions[id]; if(!p) return null; const n=s.nodes[id]; const onP = ch.path.includes(id); return { x: 8 + (p.x/this.worldW)*180, y: 8 + (p.y/this.worldH)*108, r: onP?2.6:1.8, color: n.state?.mastered?'#5bb39a':(onP?accent: tm[n.type].c), stroke: n.state?.mastered?'#1f3a31':'none', sw: n.state?.mastered?0.8:0 }; }).filter(Boolean);
+
+    const legend = ['concept','emotion','reflection','skill','principle','scenario'].map(t => ({ color: tm[t].c, label: t }));
+
+    // ---- book ----
+    const paragraphs = this.paragraphsFor(ch, s.voice);
+    const book = {
+      chapNum: ch.num, title: ch.title, epigraph: '“'+ch.epigraph+'”', epigraphBy: ch.by,
+      pathLen: ch.path.length, runningHead: ch.title,
+      folio: 'fol. '+(s.chapterIdx+1)+' · '+s.voice, pageKey: ch.id+'|'+s.voice,
+      paragraphs, spreadW: s.split ? '760px' : '880px',
+      onPrev: () => { if (s.chapterIdx>0){ const ni=s.chapterIdx-1; this.setState({chapterIdx:ni, tracePath:[], suggestNext:null}); this.visitChapter(ni); this.pushEvent('book ◂ turned to '+chapters[ni].num); } },
+      onNext: () => { if (s.chapterIdx<chapters.length-1){ const ni=s.chapterIdx+1; this.setState({chapterIdx:ni, tracePath:[], suggestNext:null}); this.visitChapter(ni); this.pushEvent('book ▸ turned to '+chapters[ni].num); } },
+      prevStyle: { fontFamily:"'IBM Plex Mono',monospace", fontSize:'10px', letterSpacing:'.1em', cursor: s.chapterIdx>0?'pointer':'default', color: s.chapterIdx>0?'#9c4a32':'#c4b9a0' },
+      nextStyle: { fontFamily:"'IBM Plex Mono',monospace", fontSize:'10px', letterSpacing:'.1em', cursor: s.chapterIdx<chapters.length-1?'pointer':'default', color: s.chapterIdx<chapters.length-1?'#9c4a32':'#c4b9a0' },
+    };
+
+    // ---- graph ----
+    const pathPairs = new Set(); for (let i=0;i<ch.path.length-1;i++) pathPairs.add(ch.path[i]+'>'+ch.path[i+1]);
+    const tracePairs = new Set(); for (let i=0;i<(s.tracePath||[]).length-1;i++) tracePairs.add(s.tracePath[i]+'>'+s.tracePath[i+1]);
+    const chipW = (n) => Math.max(70, Math.round(40 + n.label.length*6.6));
+    const rectHit = (cx,cy,hw,hh,ux,uy) => { const tx = ux!==0? hw/Math.abs(ux):1e9, ty = uy!==0? hh/Math.abs(uy):1e9; const t = Math.min(tx,ty); return [cx+ux*t, cy+uy*t]; };
+    const gap = 5, arrowLen = 9;
+
+    const edges = s.edges.map(e => {
+      const a = s.positions[e.source], b = s.positions[e.target]; if (!a||!b) return null;
+      const An = s.nodes[e.source], Bn = s.nodes[e.target]; if (!An||!Bn) return null;
+      const shw = chipW(An)/2, thw = chipW(Bn)/2, hh = 20;
+      let dx = b.x-a.x, dy = b.y-a.y; const len = Math.hypot(dx,dy)||1; const ux = dx/len, uy = dy/len;
+      const curved = e.relationship==='loops_back_to';
+      const sp = rectHit(a.x,a.y,shw,hh,ux,uy); const ep = rectHit(b.x,b.y,thw,hh,-ux,-uy);
+      let startX = sp[0]+ux*gap, startY = sp[1]+uy*gap;
+      let endX = ep[0]-ux*(gap), endY = ep[1]-uy*(gap);
+      let d, lx, ly, tanx = ux, tany = uy, tipX, tipY;
+      if (curved){
+        const mx=(startX+endX)/2; const cy = Math.min(startY,endY)-150; const cx = mx;
+        endX = ep[0]; endY = ep[1] - gap;
+        let t2x = endX-cx, t2y = endY-cy; const tl = Math.hypot(t2x,t2y)||1; tanx = t2x/tl; tany = t2y/tl;
+        tipX = endX; tipY = endY; lx = cx; ly = cy+16;
+        endX = endX - tanx*arrowLen; endY = endY - tany*arrowLen;
+        d = 'M '+startX+' '+startY+' Q '+cx+' '+cy+' '+endX+' '+endY;
+      } else {
+        endX = ep[0]-ux*(gap+arrowLen); endY = ep[1]-uy*(gap+arrowLen);
+        tipX = ep[0]-ux*gap; tipY = ep[1]-uy*gap;
+        d = 'M '+startX+' '+startY+' L '+endX+' '+endY;
+        lx = (startX+endX)/2; ly = (startY+endY)/2 - 4;
+      }
+      const px = -tany, py = tanx, aw = 4.4;
+      const arrow = tipX+','+tipY+' '+(tipX - tanx*arrowLen + px*aw)+','+(tipY - tany*arrowLen + py*aw)+' '+(tipX - tanx*arrowLen - px*aw)+','+(tipY - tany*arrowLen - py*aw);
+      const onPath = pathPairs.has(e.source+'>'+e.target);
+      const onTrace = tracePairs.has(e.source+'>'+e.target);
+      let color = onTrace ? '#6fb6cf' : onPath ? accent : (this.relColor[e.relationship]||'#3c4658');
+      const width = (onPath||onTrace) ? 2.4 : (1.1 + (e.weight||.5)*1.3);
+      let dash = '0';
+      if (e.relationship==='contradicts' || e.relationship==='loops_back_to' || Bn.createdBy==='ai') dash = '5 5';
+      if (onPath || onTrace) dash = '7 5';
+      const flowStyle = (onPath||onTrace) ? { animation:'dashFlow 1.1s linear infinite' } : {};
+      const opacity = (s.selected && e.source!==s.selected && e.target!==s.selected && !onPath && !onTrace) ? 0.35 : 1;
+      return { id:e.id, d, arrow, color, width, dash, flowStyle, opacity, label: this.relLabel[e.relationship]||e.relationship, lx, ly, labelColor: (onPath||onTrace)?color:'#7e879a' };
+    }).filter(Boolean);
+
+    const nodes = Object.keys(s.nodes).map(id => {
+      const n = s.nodes[id]; const p = s.positions[id]; if (!p) return null;
+      const meta = tm[n.type]; const onPath = ch.path.includes(id); const sel = s.selected===id;
+      const mastered = !!n.state?.mastered; const isSuggest = s.suggestNext===id; const isConfused = s.confusedNode===id;
+      const trustStroke = n.trustLevel==='experimental' ? 'dotted' : (n.trustLevel==='community'||n.trustLevel==='local') ? 'dashed' : 'solid';
+      const w = chipW(n);
+      const byGlyph = n.createdBy==='ai'?'✦':n.createdBy==='user'?'✎':n.createdBy==='module'?'⬡':'◆';
+      const byColor = n.createdBy==='ai'?'#b59bd6':n.createdBy==='user'?'#d4b15f':'#5bb39a';
+      const dim = (s.selected && !sel && !onPath && !this.isNeighbor(id, s.selected));
+      let boxShadow = sel ? '0 0 0 2px '+accent+', 0 10px 26px #00000088' : onPath ? '0 0 0 1px '+meta.c+'55, 0 0 20px '+meta.c+'33' : '0 3px 10px #00000055';
+      if (mastered) boxShadow = (sel?'0 0 0 2px '+accent+', ':'')+'0 0 0 1.5px #5bb39a, 0 0 22px #5bb39a55, 0 6px 18px #00000066';
+      if (isSuggest) boxShadow = '0 0 0 2px #d4b15f, 0 0 26px #d4b15f77';
+      if (isConfused) boxShadow = '0 0 0 1.5px #cf6a4f, 0 0 22px #cf6a4f66';
+      const style = {
+        position:'absolute', left:p.x+'px', top:p.y+'px', width:w+'px', transform:'translate(-50%,-50%)',
+        background: '#141a23', border:'1.5px '+trustStroke+' '+(mastered?'#5bb39a':meta.c), borderRadius:'10px', padding:'8px 11px 9px',
+        cursor:'grab', userSelect:'none', opacity: dim?0.4:1,
+        animation: id===s.lastAdded ? 'pulseIn .5s cubic-bezier(.3,.8,.3,1)' : 'none',
+        boxShadow, zIndex: sel?5:(mastered||isSuggest)?4:onPath?3:2,
+      };
+      const sealGlyph = mastered ? '✓' : (isSuggest ? '➜' : (isConfused ? '~' : ''));
+      const sealColor = mastered ? '#5bb39a' : (isSuggest ? '#d4b15f' : '#cf6a4f');
+      return { id, label:n.label, code:meta.code, typeColor:meta.c, byGlyph, byColor, sealOn: !!sealGlyph, sealGlyph, sealColor, conf: Math.round((n.state?.confidence||0)*100)+'%', confColor: mastered?'#5bb39a':meta.c, style, onDown: (e)=>this.startDrag(id,e) };
+    }).filter(Boolean);
+
+    // ---- inspector ----
+    let inspector = { open:false };
+    if (s.selected && s.nodes[s.selected]){
+      const n = s.nodes[s.selected]; const meta = tm[n.type];
+      const conf = n.state?.confidence||0, confu = n.state?.confusionScore||0;
+      let learnState;
+      if (n.state?.mastered) learnState = 'mastered ✓ — ready to deepen, or teach it back';
+      else if (confu >= 0.6) learnState = 'high confusion — simplify() suggested';
+      else if (conf >= 0.5) learnState = 'forming — reflect or assess once more to master';
+      else learnState = 'new — reflect or assess to build confidence';
+      const links = s.edges.filter(e => e.source===s.selected || e.target===s.selected).map(e => {
+        const out = e.source===s.selected; const other = s.nodes[out? e.target : e.source]; if (!other) return null;
+        return { label: other.label, rel: this.relLabel[e.relationship], relColor: this.relColor[e.relationship]||'#8a8d9a', dir: out?'→':'←', onClick: ()=>this.selectNode(other.id) };
+      }).filter(Boolean);
+      inspector = {
+        open:true, code:meta.code, typeColor:meta.c, label:n.label, mastered: !!n.state?.mastered,
+        by: n.createdBy, byGlyph: n.createdBy==='ai'?'✦':n.createdBy==='user'?'✎':'◆', byColor: n.createdBy==='ai'?'#b59bd6':n.createdBy==='user'?'#d4b15f':'#5bb39a',
+        trust: n.trustLevel, aiFlag: n.createdBy==='ai', summary: n.summary,
+        confPct: Math.round(conf*100)+'%', confW: Math.round(conf*100)+'%',
+        confuPct: Math.round(confu*100)+'%', confuW: Math.round(confu*100)+'%',
+        learnState, showSimplify: confu >= 0.45,
+        links, noLinks: links.length===0,
+        onClose: ()=>this.closeInspector(), onReflect: ()=>this.reflectNode(s.selected), onAssess: ()=>this.assessNode(s.selected), onAsk: ()=>this.askNode(s.selected), onSimplify: ()=>this.simplifyNode(s.selected), onDelete: ()=>this.deleteNode(s.selected),
+      };
+    }
+
+    // ---- reflect / assess card ----
+    let reflect = { open:false };
+    if (s.reflect){
+      const isAssess = s.reflect.mode==='assess';
+      const canDeeper = !isAssess && (s.reflect.depth + 1 < this.maxDepth);
+      reflect = {
+        open:true, glyph: isAssess?'✶':'↻',
+        kicker: isAssess ? 'assessment · explain it back' : ('reflection · depth '+(s.reflect.depth+1)+' / '+this.maxDepth),
+        nodeLabel: s.reflect.nodeLabel, question: s.reflect.question, input: s.reflect.input,
+        helper: isAssess ? 'the runtime evaluates your understanding — confidence rises if you can explain it; if not, it offers a simpler path.' : 'your answer becomes a node — the graph grows, and the book re-renders around it.',
+        onInput: this.onReflectInput, onKey: this.onReflectKey,
+        onSubmit: ()=>this.submitReflection(canDeeper), submitLabel: isAssess ? 'Submit answer →' : (canDeeper? 'Reflect & go deeper ↻' : 'Reflect →'),
+        submitStyle: 'flex:1; text-align:center; padding:13px; border-radius:8px; cursor:pointer; background:linear-gradient(#9c4a32,#7d3a27); color:#f7f2e6; font-size:14px; font-family:\'Spectral\',serif; letter-spacing:.01em;',
+        onCancel: ()=>this.cancelReflect(), cancelLabel: (!isAssess && s.reflect.depth>0)? 'Enough' : 'Cancel',
+        onBackdrop: ()=>this.cancelReflect(), stop: (e)=>e.stopPropagation(),
+      };
+    }
+
+    // ---- confirm ----
+    let confirm = { open:false };
+    if (s.confirm){ const c = s.confirm; confirm = { open:true, glyph:c.glyph, kicker:c.kicker, accent:c.accent, borderColor:c.borderColor, text:c.text, noLabel:c.noLabel, yesLabel:c.yesLabel,
+      onNo: ()=>this.setState({confirm:null}), onYes: ()=>this.confirmYes() }; }
+
+    // ---- terminal ----
+    const aw = s.term.awaiting;
+    const term = {
+      lines: s.term.lines.map(ln => ({ segs: ln.segs.map(sg => ({ t: sg.t, style: 'color:'+(this.roleColor[sg.role]||'#cfc9ba')+';'+((sg.role==='em'||sg.role==='head')?' font-weight:500;':'')+((sg.role==='book')?" font-family:'Spectral',serif; font-style:italic; font-size:13.5px;":'') })) })),
+      input: s.term.input, onInput: this.onTermInput, onKey: this.onTermKey, onClear: ()=>this.termClear(),
+      prompt: aw ? (aw.type==='assess'?'✶':'↻') : '>', promptColor: aw ? (aw.type==='assess'?'#5bb39a':'#9c4a32') : accent,
+      placeholder: aw ? (aw.type==='assess'?'explain it back in your own words…':'answer the reflection…') : 'reflect "anger"  ·  assess "judgment"  ·  help',
+      cursorOn: s.term.input? 0 : 1,
+    };
+
+    return {
+      ui, saved, objective: ch.objective, devMode: s.devMode, termOpen: s.termOpen,
+      breadcrumb, lastEvent: s.lastEvent, stats: { nodes: Object.keys(s.nodes).length, edges: s.edges.length, mastered: Object.values(s.nodes).filter(n=>n.state?.mastered).length },
+      rail: { book: railBook, graph: (s.mode==='graph' && !s.split), onShowStructure: ()=>this.setMode('graph'), onReturnBook: ()=>this.setMode('book'),
+        visitedPct: Math.round((visitedCount/Math.max(1,ch.path.length))*100)+'%', masteredPct: Math.round((masteredCount/Math.max(1,ch.path.length))*100)+'%',
+        progressLabel: masteredCount+' mastered · '+visitedCount+' of '+ch.path.length+' visited' },
+      chapters: chaptersUi, minimap: { dots: mmDots }, legend,
+      pane: {
+        book: (s.mode==='book' || s.split), graph: (s.mode==='graph' || s.split), split: s.split,
+        bookWrap: 'flex:'+(s.split?'0 0 46%':'1 1 auto')+'; display:flex; flex-direction:column; min-width:0; min-height:0;',
+        graphWrap: 'flex:1 1 auto; position:relative; min-width:0; min-height:0;',
+      },
+      book, graph: { nodes, edges, worldW:this.worldW, worldH:this.worldH, scale:s.graphScale, canvasCursor:'default', onCanvasDown:this.onCanvasDown },
+      inspector, reflect, confirm, term,
+      setStageRef:this.setStageRef, setTermInputRef:this.setTermInputRef, setTermScrollRef:this.setTermScrollRef, setReflectRef:this.setReflectRef,
+    };
+  }
+
+  isNeighbor(id, sel){ return this.state.edges.some(e => (e.source===sel&&e.target===id)||(e.target===sel&&e.source===id)); }
+
+  startDrag = (id, e) => {
+    e.stopPropagation();
+    const sc = this.state.graphScale;
+    const p0 = this.state.positions[id]; if (!p0) return;
+    const start = { mx:e.clientX, my:e.clientY, ox:p0.x, oy:p0.y };
+    let moved = false;
+    const mv = (ev) => {
+      const dx = (ev.clientX-start.mx)/sc, dy = (ev.clientY-start.my)/sc;
+      if (Math.hypot(ev.clientX-start.mx, ev.clientY-start.my) > 3) moved = true;
+      this.setState(s => ({ positions: { ...s.positions, [id]: { x: start.ox+dx, y: start.oy+dy } } }));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+      if (!moved) this.selectNode(id);
+    };
+    window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+  };
+}
+</script>
+</body>
+</html>
