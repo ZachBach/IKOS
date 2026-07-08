@@ -109,6 +109,8 @@ the **trunk**, edges as **branches**, and source/root concepts as **roots**.
 - [x] 🧠 Longest-path layering + barycenter cross-reduction, computed from edges (ignores
       `contradicts`/`loops_back_to` so cycles don't break depth); nodes **animate** into place
       (CSS transition, only during a tidy pass) and stay **draggable** afterward. Positions persist.
+- [ ] 🐙 **Polish pass** — width-aware sibling spacing (use `chipW`) + multi-pass barycenter so
+      dense layers don't overlap; fix radial ring crowding. → [COPILOT_TASKS.md T10](COPILOT_TASKS.md)
 - [ ] 🧠 Force-directed relax option (light) to de-overlap dense clusters before tidying.
 - [ ] 🧠 Persist a per-node `pinned` flag so a tidy pass respects user-placed anchors.
 

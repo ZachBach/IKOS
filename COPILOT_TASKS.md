@@ -193,6 +193,41 @@ click / Esc. Reuse existing handlers; don't invent new state verbs.
 
 ---
 
+## T10 · Graph tree/radial layout — width-aware spacing + fewer crossings  ·  _≈2–3 h_
+
+**Goal:** polish the shipped **⌆ Tree / ❉ Radial** graph layouts so dense layers don't overlap.
+**File:** `Iterative Knowledge OS.dc.html` — refine the existing method **`computeGraphLayout(mode)`**
+(and its caller `applyGraphLayout`). This is a refinement of working code, not a rewrite.
+
+**What's wrong now:** x-positions in a layer are spread by *even divisions* of the world width,
+which ignores **node chip width** — so wide labels collide when a layer has many nodes. Radial
+rings crowd for the same reason. Cross-reduction is a single barycenter pass.
+
+**Task:**
+- Space siblings within a layer by their **measured width** (the component already has a `chipW(n)`
+  helper that returns a node's pixel width) instead of even fractions — pack left-to-right with a
+  gap, then center the row. Let the layer grow past `worldW` if needed (the canvas pans/zooms).
+- Do **2–3 barycenter passes** (down then up) instead of one to reduce edge crossings.
+- **Radial:** when a ring's circumference can't fit its nodes at chip width, push that ring's radius
+  outward so neighbors don't overlap.
+- Keep everything else intact: nodes stay draggable, positions persist, the tidy animation
+  (`layoutAnim`) and the `contradicts`/`loops_back_to` skip-set stay as-is.
+
+**Acceptance:** with ~30+ nodes in one branch, tidied Tree/Radial shows **no overlapping chips**;
+nodes remain draggable afterward; `node build.mjs` runs clean. (Test: seed nodes via the terminal,
+switch to Graph, click ⌆ Tree.)
+
+> **Prompt:** In `Iterative Knowledge OS.dc.html`, refine the existing `computeGraphLayout(mode)`
+> method so the ⌆ Tree and ❉ Radial layouts don't overlap in dense layers. Space siblings in a
+> layer by their measured width using the existing `chipW(node)` helper (pack + center, allow the
+> row to exceed `worldW`), do 2–3 barycenter passes (down+up) to reduce crossings, and in radial
+> mode push a ring's radius outward when its nodes can't fit at chip width. Keep nodes draggable,
+> keep positions persisting, and keep the `layoutAnim` transition and the
+> `contradicts`/`loops_back_to` skip-set. Run `node build.mjs`. Verify no overlapping chips with
+> 30+ nodes in one branch.
+
+---
+
 ## Cross-repo (needs the EHR codebase — not in this repo)
 
 These are 🐙-sized but live in the **EHR simulator** project, so route them once you're in that repo:
