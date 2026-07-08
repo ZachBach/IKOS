@@ -37,6 +37,9 @@
   @keyframes fadeUp { from { transform: translateY(8px); } to { transform: none; } }
   @keyframes tick { from { transform: translateY(-2px); } to { transform: none; } }
   @keyframes sealIn { 0% { transform: scale(.4) rotate(-12deg); } 70% { transform: scale(1.15) rotate(3deg); } 100% { transform: scale(1) rotate(0); } }
+  /* cross-view command pulse (§5): a node flashing in every view at once */
+  @keyframes cmdPulse { 0% { opacity: .9; transform: scale(.92); } 100% { opacity: 0; transform: scale(1.5); } }
+  @media (prefers-reduced-motion: reduce) { [style*="cmdPulse"] { animation-duration: .01ms !important; } }
   /* focus visibility for keyboard users */
   [role="button"]:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid #d4b15f; outline-offset: 2px; border-radius: 4px; }
   /* ---- responsive / mobile ---- */
@@ -460,6 +463,12 @@
           <div ref="{{ setStageRef }}" onPointerDown="{{ graph.onCanvasDown }}" onWheel="{{ graph.onWheel }}" style="position:absolute; inset:0; overflow:hidden; background:#0a0d12; background-image:radial-gradient(#ffffff0a 1px, transparent 1px); background-size:26px 26px; cursor:{{ graph.canvasCursor }};">
             <!-- vignette -->
             <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 100% at 50% 50%, transparent 55%, #06080b 100%);"></div>
+            <!-- layout modes (§3b): tidy the free graph into a tree (trunk · branches · roots) or a radial map -->
+            <div style="position:absolute; left:14px; top:14px; z-index:6; display:flex; gap:2px; padding:3px; border:1px solid {{ ui.hair }}; border-radius:9px; background:#0e1219e8; box-shadow:0 4px 14px #00000055;">
+              <sc-for list="{{ graph.layouts }}" as="lo" hint-placeholder-count="3">
+                <div onClick="{{ lo.onClick }}" role="button" tabindex="0" aria-label="Graph layout: {{ lo.key }}" title="Arrange the graph — {{ lo.key }}" style="{{ lo.style }}" style-hover="color:#f3eee2;">{{ lo.label }}</div>
+              </sc-for>
+            </div>
             <div style="position:absolute; left:50%; top:50%; width:{{ graph.worldW }}px; height:{{ graph.worldH }}px; transform:{{ graph.transform }}; transform-origin:center;">
               <!-- edges -->
               <svg width="{{ graph.worldW }}" height="{{ graph.worldH }}" style="position:absolute; left:0; top:0; overflow:visible;">
@@ -478,6 +487,9 @@
               <!-- nodes -->
               <sc-for list="{{ graph.nodes }}" as="n" hint-placeholder-count="8">
                 <div onPointerDown="{{ n.onDown }}" style="{{ n.style }}">
+                  <sc-if value="{{ n.pulseOn }}" hint-placeholder-val="{{ false }}">
+                    <div key="{{ n.pulseKey }}" style="position:absolute; inset:-4px; border-radius:12px; border:2px solid #d4b15f; box-shadow:0 0 18px #d4b15f99; pointer-events:none; animation:cmdPulse .9s ease-out forwards;"></div>
+                  </sc-if>
                   <div onPointerDown="{{ n.onLinkDown }}" role="button" tabindex="-1" aria-label="Drag to connect this node to another" title="Drag to connect →" style="position:absolute; right:-9px; top:50%; width:18px; height:18px; margin-top:-9px; border-radius:50%; background:#0e1219; border:1.5px solid {{ n.typeColor }}; display:flex; align-items:center; justify-content:center; cursor:crosshair; z-index:7; box-shadow:0 2px 6px #00000066;" style-hover="background:{{ n.typeColor }};">
                     <span style="font-size:11px; line-height:1; color:{{ n.typeColor }}; pointer-events:none;">↝</span>
                   </div>
@@ -1227,6 +1239,9 @@ class Component extends DCLogic {
       lastEvent: { text: 'runtime ready · graph is the source of truth · book ch.2', key: 0 },
       evKey: 1,
       graphScale: 0.62, graphZoom: 1, graphPan: { x:0, y:0 },
+      graphLayout: 'free',        // free · tree · radial — how the graph auto-arranges
+      layoutAnim: 0,              // stamp: when non-zero, nodes CSS-transition into place (a "tidy" pass)
+      pulse: null,                // { id, key } — cross-view command pulse: flash this node in every view at once
       tracePath: [],
       term: { input:'', awaiting:null, hist:[], hIdx:-1, lines: [
         { segs:[{t:'Iterative Knowledge OS', role:'sys'},{t:'  ·  runtime v0.5', role:'dim'}] },
@@ -1394,7 +1409,7 @@ class Component extends DCLogic {
   setOrbitSpin(v){ this.setState({ orbitSpin:v }); if(this._orb) this._orb.spin = v; }
   orbitResetCamera(){ if(this._orb){ this._orb.rot = { x:0.35, y:0 }; this._orb.vel={x:0,y:0}; this._orb.camera.position.z=720; this._orb.render(); } }
   orbitPreset(name){ if(!this._orb) return; const o=this._orb; o.vel={x:0,y:0}; if(name==='front'){ o.rot={x:0.08,y:0}; o.camera.position.z=700; } else if(name==='top'){ o.rot={x:1.2,y:0}; o.camera.position.z=760; } else if(name==='tilt'){ o.rot={x:0.42,y:0.7}; o.camera.position.z=680; } else if(name==='wide'){ o.rot={x:0.3,y:0}; o.camera.position.z=1020; } o.render(); }
-  growNode(id){ const n=this.state.nodes[id]; if(!n) return; this.applyMastery(id, 0.16, -0.06); this.pushEvent('🌱 grew “'+n.label+'” · confidence rising'); }
+  growNode(id){ const n=this.state.nodes[id]; if(!n) return; this.applyMastery(id, 0.16, -0.06); this.pushEvent('🌱 grew “'+n.label+'” · confidence rising'); this.pulseNode(id); }
   destroyNode(id){ const n=this.state.nodes[id]; if(!n) return; this.setState({ orbitDetail:null }); this.deleteNode(id); this.orbitSync(); this.pushEvent('☄ destroyed “'+n.label+'” · pruned from the graph'); }
   setOrbitRef = (el) => {
     this._orbitEl = el;
@@ -1492,7 +1507,15 @@ class Component extends DCLogic {
     starGeo.setAttribute('position', new T3.BufferAttribute(sp,3));
     const stars = new T3.Points(starGeo, new T3.PointsMaterial({ color:0x8894aa, size:2.4, transparent:true, opacity:0.65 }));
     scene.add(stars);
-    this._orb = { scene, camera, renderer, dom:renderer.domElement, core, stars, rot:{x:0.35,y:0}, vel:{x:0,y:0}, spin:this.state.orbitSpin??0.5, W, H, sprites:[], nodeMeshes:[], t0: performance.now(), ready: !initP,
+    // central sun — the star the concept-planets orbit, at the heart of the system
+    const sunTex = (()=>{ try{ const cv=document.createElement('canvas'); cv.width=cv.height=128; const g=cv.getContext('2d'); const gr=g.createRadialGradient(64,64,0,64,64,64); gr.addColorStop(0,'rgba(255,255,245,1)'); gr.addColorStop(0.25,'rgba(255,224,150,0.9)'); gr.addColorStop(0.55,'rgba(255,150,60,0.35)'); gr.addColorStop(1,'rgba(255,120,40,0)'); g.fillStyle=gr; g.fillRect(0,0,128,128); const tx=new T3.CanvasTexture(cv); if(T3.SRGBColorSpace) tx.colorSpace=T3.SRGBColorSpace; return tx; }catch(e){ return null; } })();
+    const sunR = 34; const sun = new T3.Group();
+    const sunCore = new T3.Mesh(new T3.IcosahedronGeometry(sunR, 3), new T3.MeshBasicMaterial({ color:0xffca63 })); sun.add(sunCore);
+    const sunHalo1 = new T3.Sprite(new T3.SpriteMaterial({ map:sunTex, color:0xffb64a, transparent:true, opacity:0.85, blending:T3.AdditiveBlending, depthWrite:false })); sunHalo1.scale.set(sunR*3.4, sunR*3.4, 1); sun.add(sunHalo1);
+    const sunHalo2 = new T3.Sprite(new T3.SpriteMaterial({ map:sunTex, color:0xffd884, transparent:true, opacity:0.5, blending:T3.AdditiveBlending, depthWrite:false })); sunHalo2.scale.set(sunR*7.5, sunR*7.5, 1); sun.add(sunHalo2);
+    scene.add(sun);
+    const sunLight = new T3.PointLight(0xffd6a0, useGPU ? 1.5 : 0.65); if (useGPU) sunLight.decay = 0; sunLight.position.set(0,0,0); scene.add(sunLight);
+    this._orb = { scene, camera, renderer, dom:renderer.domElement, core, stars, sun, sunCore, sunHalo1, sunHalo2, rot:{x:0.35,y:0}, vel:{x:0,y:0}, spin:this.state.orbitSpin??0.5, W, H, sprites:[], nodeMeshes:[], comets:[], flying:false, nextComet:4, t0: performance.now(), ready: !initP,
       raycaster: new T3.Raycaster(), mouse: new T3.Vector2(),
       render: ()=>{ if(!this._orb || !this._orb.ready) return; core.rotation.x = this._orb.rot.x; core.rotation.y = this._orb.rot.y; stars.rotation.y = this._orb.rot.y*0.3; try{ renderer.render(scene, camera); }catch(e){} } };
     camera.position.set(0, 30, 720);
@@ -1504,12 +1527,22 @@ class Component extends DCLogic {
     dom.addEventListener('pointerdown', e=>{ drag=true; moved=false; px=e.clientX; py=e.clientY; downX=e.clientX; downY=e.clientY; dom.style.cursor='grabbing'; });
     window.addEventListener('pointermove', e=>{ if(!drag||!this._orb) return; if(Math.hypot(e.clientX-downX,e.clientY-downY)>4) moved=true; const dy=(e.clientX-px)*0.006, dx=(e.clientY-py)*0.006; this._orb.rot.y += dy; this._orb.rot.x += dx; this._orb.rot.x=Math.max(-1.3,Math.min(1.3,this._orb.rot.x)); this._orb.vel={x:dx,y:dy}; px=e.clientX; py=e.clientY; this._orb.render(); });
     window.addEventListener('pointerup', ()=>{ drag=false; if(this._orb) dom.style.cursor='grab'; });
-    dom.addEventListener('click', e=>{ if(moved||!this._orb) return; const r=dom.getBoundingClientRect(); this._orb.mouse.x=((e.clientX-r.left)/r.width)*2-1; this._orb.mouse.y=-((e.clientY-r.top)/r.height)*2+1; this._orb.raycaster.setFromCamera(this._orb.mouse, this._orb.camera); const hits=this._orb.raycaster.intersectObjects(this._orb.nodeMeshes, false); if(hits.length){ const id=hits[0].object.userData.id; if(id) this.openOrbitDetail(id); } });
+    dom.addEventListener('click', e=>{ if(moved||!this._orb) return; const r=dom.getBoundingClientRect(); this._orb.mouse.x=((e.clientX-r.left)/r.width)*2-1; this._orb.mouse.y=-((e.clientY-r.top)/r.height)*2+1; this._orb.raycaster.setFromCamera(this._orb.mouse, this._orb.camera); const hits=this._orb.raycaster.intersectObjects(this._orb.nodeMeshes, false); if(hits.length){ const id=hits[0].object.userData.id; if(id) this.flyToOrbit(hits[0].object, id); } });
     dom.addEventListener('wheel', e=>{ e.preventDefault(); if(!this._orb) return; const c=this._orb.camera; c.position.z = Math.max(220, Math.min(1100, c.position.z + e.deltaY*0.5)); this._orb.render(); }, {passive:false});
     this.buildOrbital();
-    const loop = ()=>{ if(!this._orb) return; const t=(performance.now()-this._orb.t0)/1000; if(!drag){ const v=this._orb.vel||{x:0,y:0}; this._orb.rot.y += v.y + 0.0016*(this._orb.spin||0); this._orb.rot.x += v.x; this._orb.rot.x=Math.max(-1.3,Math.min(1.3,this._orb.rot.x)); v.x*=0.92; v.y*=0.92; if(Math.abs(v.x)<0.00002) v.x=0; if(Math.abs(v.y)<0.00002) v.y=0; }
-      this._orb.nodeMeshes.forEach(m=>{ const u=m.userData; const grow=Math.max(0,Math.min(1,(t-u.birth)/0.6)); const ease=1-Math.pow(1-grow,3); const pulse=u.mastered?(1+Math.sin(t*2+u.phase)*0.08):1; m.scale.setScalar((0.72+0.28*ease)*pulse); m.position.y=u.base.y+Math.sin(t*0.8+u.phase)*3.5; if(u.glow){ u.glow.position.y=m.position.y; u.glow.material.opacity=(u.mastered?0.34:0.24)*(0.7+0.3*Math.sin(t*1.5+u.phase))*ease; } if(u.mastered) m.material.emissiveIntensity=0.5+0.25*Math.sin(t*2+u.phase); m.rotation.y += 0.012*(u.spin||0.4); });
-      this._orb.render(); this._orb.raf = requestAnimationFrame(loop); };
+    const loop = ()=>{ if(!this._orb) return; const o=this._orb; const t=(performance.now()-o.t0)/1000; if(!drag && !o.flying){ const v=o.vel||{x:0,y:0}; o.rot.y += v.y + 0.0016*(o.spin||0); o.rot.x += v.x; o.rot.x=Math.max(-1.3,Math.min(1.3,o.rot.x)); v.x*=0.92; v.y*=0.92; if(Math.abs(v.x)<0.00002) v.x=0; if(Math.abs(v.y)<0.00002) v.y=0; }
+      o.nodeMeshes.forEach(m=>{ const u=m.userData; const grow=Math.max(0,Math.min(1,(t-u.birth)/0.6)); const ease=1-Math.pow(1-grow,3); const pulse=u.mastered?(1+Math.sin(t*2+u.phase)*0.08):1;
+        if(u.holder){ u.holder.position.y=u.base.y+Math.sin(t*0.8+u.phase)*3.5; u.holder.scale.setScalar(ease||0.0001); }
+        const flash=(u.flashUntil && t<u.flashUntil) ? (u.flashUntil-t)/0.9 : 0; // cross-view command pulse burst
+        m.scale.setScalar(pulse*(1+flash*0.6)); m.rotation.y += 0.012*(u.spin||0.4);
+        if(u.glow) u.glow.material.opacity=Math.min(1,(u.mastered?0.34:0.24)*(0.7+0.3*Math.sin(t*1.5+u.phase))+flash*0.6);
+        if(u.mastered && m.material) m.material.emissiveIntensity=0.5+0.25*Math.sin(t*2+u.phase);
+        if(u.ringGrp) u.ringGrp.rotation.z += 0.0018*(u.spin||0.4);
+        if(u.moons) for(let k=0;k<u.moons.length;k++){ const mo=u.moons[k], d=mo.userData; const a=t*d.sp+d.ph; mo.position.set(Math.cos(a)*d.orb, Math.sin(a)*d.orb*Math.sin(d.incl), Math.sin(a)*d.orb*Math.cos(d.incl)); }
+      });
+      if(o.sun){ o.sunCore.rotation.y += 0.0009; o.sunCore.scale.setScalar(1+Math.sin(t*0.7)*0.05); if(o.sunHalo1) o.sunHalo1.material.opacity=0.7+0.18*Math.sin(t*0.9); if(o.sunHalo2) o.sunHalo2.material.opacity=0.42+0.12*Math.sin(t*0.6+1.0); }
+      this.updateComets(t);
+      o.render(); o.raf = requestAnimationFrame(loop); };
     if (initP){
       initP.then(()=>{
         if (this._orb && this._orb.renderer === renderer){
@@ -1685,6 +1718,7 @@ class Component extends DCLogic {
   buildOrbital(){
     const o = this._orb; if(!o) return; const THREEg = this._T || window.THREE; if(!THREEg) return;
     while(o.core.children.length) o.core.remove(o.core.children[0]);
+    if(o.comets){ o.comets.forEach(c=>{ try{ o.scene.remove(c.line); c.geo.dispose(); c.line.material.dispose(); }catch(e){} }); o.comets=[]; }
     o.sprites=[]; o.nodeMeshes=[];
     const tm = this.typeMeta; const hidden = this._hiddenSet || new Set();
     const ids = Object.keys(this.state.nodes).filter(id=>!hidden.has(id));
@@ -1698,20 +1732,70 @@ class Component extends DCLogic {
     // edges
     const showLabels = this.state.orbitLabels!==false;
     this.state.edges.forEach(e=>{ const a=pos[e.source], b=pos[e.target]; if(!a||!b) return; const g=new THREEg.BufferGeometry().setFromPoints([a,b]); const m=new THREEg.LineBasicMaterial({color:0x4a5468, transparent:true, opacity:0.4}); o.core.add(new THREEg.Line(g,m)); });
+    // connection degree per node — drives which planets grow rings (hubs / gas giants) and how many moons they spawn
+    const degree={}; this.state.edges.forEach(e=>{ if(pos[e.source]&&pos[e.target]){ degree[e.source]=(degree[e.source]||0)+1; degree[e.target]=(degree[e.target]||0)+1; } });
     // nodes
     let bi=0;
-    ids.forEach(id=>{ const n=this.state.nodes[id]; const p=pos[id]; if(!p) return; const col=new THREEg.Color(tm[n.type].c); const mastered=n.state&&n.state.mastered; const rad=mastered?12:8.5;
+    ids.forEach(id=>{ const n=this.state.nodes[id]; const p=pos[id]; if(!p) return; const col=new THREEg.Color(tm[n.type].c); const mastered=n.state&&n.state.mastered; const deg=degree[id]||0; const rad=mastered?12:8.5;
+      const holder=new THREEg.Group(); holder.position.copy(p); holder.scale.setScalar(0.0001); o.core.add(holder);
       const geo=new THREEg.IcosahedronGeometry(rad, mastered?2:1);
       const mat=this.makePlanetMaterial(THREEg, col, mastered);
-      const mesh=new THREEg.Mesh(geo,mat); mesh.position.copy(p); o.core.add(mesh); o.nodeMeshes.push(mesh);
+      const mesh=new THREEg.Mesh(geo,mat); holder.add(mesh); o.nodeMeshes.push(mesh);
       const wire=new THREEg.LineSegments(new THREEg.WireframeGeometry(geo), new THREEg.LineBasicMaterial({color:col, transparent:true, opacity:mastered?0.68:0.4})); mesh.add(wire);
-      const glowM=new THREEg.SpriteMaterial({color:col, transparent:true, opacity:0.24}); const glow=new THREEg.Sprite(glowM); glow.scale.set(rad*3.6,rad*3.6,1); glow.position.copy(p); o.core.add(glow);
-      mesh.userData = { id, base:p.clone(), phase:Math.random()*Math.PI*2, mastered, rad, glow, wire, spin:0.25+Math.random()*0.6, birth:(bi++)*0.045 };
+      const glowM=new THREEg.SpriteMaterial({color:col, transparent:true, opacity:0.24}); const glow=new THREEg.Sprite(glowM); glow.scale.set(rad*3.6,rad*3.6,1); holder.add(glow);
+      // rings — mastered planets and hubs (3+ links) become ringed gas giants
+      let ringGrp=null; const ringed = mastered || deg>=3;
+      if(ringed){ ringGrp=new THREEg.Group(); const bands=mastered?3:2; const white=new THREEg.Color(0xffffff);
+        for(let b=0;b<bands;b++){ const ri=rad*(1.7+b*0.4), ro=ri+rad*0.3; const rgeo=new THREEg.RingGeometry(ri,ro,72); const rmat=new THREEg.MeshBasicMaterial({color:col.clone().lerp(white,0.28), side:THREEg.DoubleSide, transparent:true, opacity:0.22-b*0.05}); ringGrp.add(new THREEg.Mesh(rgeo,rmat)); }
+        ringGrp.rotation.x=Math.PI*0.5*0.62; ringGrp.rotation.y=Math.random()*0.6-0.3; holder.add(ringGrp);
+      }
+      // moons — minor "seed" bodies spawned from the node, one per connection (capped), on tilted orbits
+      const moons=[]; const nMoons=Math.min(4, Math.max(0, deg-1)); const mcol=col.clone().lerp(new THREEg.Color(0xffffff),0.5);
+      for(let mI=0;mI<nMoons;mI++){ const msz=rad*(0.15+Math.random()*0.12); const mo=new THREEg.Mesh(new THREEg.SphereGeometry(msz,8,8), new THREEg.MeshBasicMaterial({color:mcol, transparent:true, opacity:0.92})); mo.userData={ orb:rad*(2.1+mI*0.55+Math.random()*0.2), ph:Math.random()*Math.PI*2, sp:0.5+Math.random()*0.9, incl:Math.random()*0.8-0.4 }; moons.push(mo); holder.add(mo); }
+      mesh.userData = { id, holder, base:p.clone(), phase:Math.random()*Math.PI*2, mastered, rad, glow, wire, ringGrp, moons, spin:0.25+Math.random()*0.6, birth:(bi++)*0.045 };
       mesh.rotation.z = Math.random()*0.6-0.3;
-      if(showLabels){ const spr=this.makeLabelSprite(n.label, tm[n.type].c); if(spr){ spr.position.copy(p); spr.position.y += rad+12; o.core.add(spr); } }
+      if(showLabels){ const spr=this.makeLabelSprite(n.label, tm[n.type].c); if(spr){ spr.position.set(0, rad+12, 0); holder.add(spr); } }
     });
     o.t0 = performance.now();
     o.render();
+  }
+  // cinematic click — fly the camera into the clicked planet (rotate it front-and-centre, zoom in), then open its detail
+  flyToOrbit(mesh, id){
+    const o=this._orb; const T3=this._T||window.THREE; if(!o||!T3){ this.openOrbitDetail(id); return; }
+    const p=(mesh.userData&&mesh.userData.base)||new T3.Vector3();
+    const hz=Math.hypot(p.x,p.z)||0.001;
+    const targetY=-Math.atan2(p.x,p.z);
+    const targetX=Math.max(-1.2,Math.min(1.2,Math.atan2(p.y,hz)));
+    const targetZ=Math.max(240,Math.min(o.camera.position.z, p.length()+130));
+    const fromX=o.rot.x, fromY=o.rot.y, fromZ=o.camera.position.z;
+    const dY=Math.atan2(Math.sin(targetY-fromY),Math.cos(targetY-fromY)); // shortest arc around Y
+    const dur=680, t0=performance.now();
+    o.flying=true; o.vel={x:0,y:0};
+    const step=()=>{ if(!this._orb||this._orb!==o) return; const k=Math.min(1,(performance.now()-t0)/dur); const e=k<0.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+      o.rot.y=fromY+dY*e; o.rot.x=fromX+(targetX-fromX)*e; o.camera.position.z=fromZ+(targetZ-fromZ)*e; o.render();
+      if(k<1){ requestAnimationFrame(step); } else { o.flying=false; this.spawnComet(0xbcd0ff); this.openOrbitDetail(id); } };
+    requestAnimationFrame(step);
+  }
+  // ambient "cosmic events" — shooting stars that streak across the far starfield
+  spawnComet(color){
+    const o=this._orb, T3=this._T||window.THREE; if(!o||!o.comets||!T3) return;
+    const R=1150, a=Math.random()*Math.PI*2;
+    const start=new T3.Vector3(Math.cos(a)*R,(Math.random()-0.5)*760,Math.sin(a)*R);
+    const end=start.clone().multiplyScalar(-0.6); end.y=(Math.random()-0.5)*760;
+    const geo=new T3.BufferGeometry().setFromPoints([new T3.Vector3(),new T3.Vector3()]);
+    const line=new T3.Line(geo,new T3.LineBasicMaterial({color:color||0xbcd0ff,transparent:true,opacity:0}));
+    o.scene.add(line);
+    o.comets.push({ line, geo, start, dir:end.sub(start), born:(performance.now()-o.t0)/1000, life:1.3+Math.random()*0.9 });
+  }
+  updateComets(t){
+    const o=this._orb; if(!o||!o.comets) return;
+    for(let i=o.comets.length-1;i>=0;i--){ const c=o.comets[i]; const age=(t-c.born)/c.life;
+      if(age>=1){ try{ o.scene.remove(c.line); c.geo.dispose(); c.line.material.dispose(); }catch(e){} o.comets.splice(i,1); continue; }
+      const head=c.start.clone().addScaledVector(c.dir,age); const tail=c.start.clone().addScaledVector(c.dir,Math.max(0,age-0.05));
+      c.geo.setFromPoints([tail,head]); if(c.geo.attributes.position) c.geo.attributes.position.needsUpdate=true;
+      c.line.material.opacity=0.85*Math.sin(age*Math.PI);
+    }
+    if(t>(o.nextComet||4)){ o.nextComet=t+6+Math.random()*7; if(o.comets.length<3) this.spawnComet(); }
   }
   makeLabelSprite(text, hex){ try{ const T3=this._T||window.THREE; const cv=document.createElement('canvas'); const ctx=cv.getContext('2d'); const fs=42; ctx.font='500 '+fs+'px Spectral, serif'; const w=ctx.measureText(text).width; cv.width=w+40; cv.height=fs+28; ctx.font='500 '+fs+'px Spectral, serif'; ctx.fillStyle='rgba(12,15,20,0.72)'; ctx.fillRect(0,0,cv.width,cv.height); ctx.fillStyle=hex; ctx.textBaseline='middle'; ctx.fillText(text,20,cv.height/2); const tex=new T3.CanvasTexture(cv); tex.needsUpdate=true; if (T3.SRGBColorSpace) tex.colorSpace = T3.SRGBColorSpace; const mat=new T3.SpriteMaterial({map:tex, transparent:true}); const spr=new T3.Sprite(mat); const sc=cv.width/cv.height; spr.scale.set(38*sc,38,1); return spr; }catch(e){ return null; } }
   orbitSync(){ if(this._orb) this.buildOrbital(); }
@@ -1731,6 +1815,61 @@ class Component extends DCLogic {
   };
 
   pushEvent(text){ this.setState(s => ({ lastEvent: { text, key: s.evKey }, evKey: s.evKey + 1 })); }
+
+  // ---- cross-view command pulse (§5): flash one concept in every view at once ----
+  pulseNode(id){ if(!id) return; this.setState({ pulse: { id, key: Date.now() } }); if (this._orb) this.orbitPulse(id); }
+  orbitPulse(id){ const o=this._orb; if(!o||!o.nodeMeshes) return; const m=o.nodeMeshes.find(mm=>mm.userData&&mm.userData.id===id); if(m){ m.userData.flashUntil=(performance.now()-o.t0)/1000+0.9; this.spawnComet(0xffe6b0); } }
+
+  // ---- graph auto-layout (§3b): tidy the messy free graph into a tree or a radial map ----
+  applyGraphLayout(mode){
+    if (mode==='free'){ this.setState({ graphLayout:'free' }); return; }
+    const positions = this.computeGraphLayout(mode);
+    if (!positions){ this.setState({ graphLayout:mode }); return; }
+    const stamp = Date.now(); this._layoutAnim = stamp;
+    this.setState({ graphLayout:mode, positions, layoutAnim:stamp });
+    this.pushEvent(mode==='tree' ? '⌆ graph tidied · tree layout (trunk · branches · roots)' : '❉ graph tidied · radial map (roots at centre)');
+    if (this._orb) this.orbitSync();
+    setTimeout(()=>{ if (this._layoutAnim===stamp) this.setState({ layoutAnim:0 }); }, 560);
+  }
+  computeGraphLayout(mode){
+    const s=this.state; const hidden=this._hiddenSet||new Set();
+    const ids=Object.keys(s.nodes).filter(id=>!hidden.has(id));
+    if (!ids.length) return null;
+    const idSet=new Set(ids);
+    const skip=new Set(['contradicts','loops_back_to']); // non-hierarchical edges don't shape the trunk
+    const children={}, indeg={};
+    ids.forEach(id=>{ children[id]=[]; indeg[id]=0; });
+    s.edges.forEach(e=>{ if(skip.has(e.relationship)) return; if(!idSet.has(e.source)||!idSet.has(e.target)||e.source===e.target) return; children[e.source].push(e.target); indeg[e.target]++; });
+    // roots = no incoming hierarchy edge; if the graph is one big cycle, seed with the least-depended-on node
+    let roots=ids.filter(id=>indeg[id]===0);
+    if (!roots.length) roots=[ids.slice().sort((a,b)=>indeg[a]-indeg[b])[0]];
+    // longest-path layering from the roots
+    const depth={}; const q=[]; const seen=new Set();
+    roots.forEach(r=>{ depth[r]=0; q.push(r); seen.add(r); });
+    for (let h=0; h<q.length; h++){ const u=q[h]; (children[u]||[]).forEach(v=>{ const nd=(depth[u]||0)+1; if(depth[v]==null||nd>depth[v]) depth[v]=nd; if(!seen.has(v)){ seen.add(v); q.push(v); } }); }
+    let maxD=0; ids.forEach(id=>{ if(depth[id]!=null&&depth[id]>maxD) maxD=depth[id]; });
+    ids.forEach(id=>{ if(depth[id]==null) depth[id]=maxD+1; }); // isolated nodes → their own bottom row
+    const layers={}; ids.forEach(id=>{ (layers[depth[id]]=layers[depth[id]]||[]).push(id); });
+    const layerKeys=Object.keys(layers).map(Number).sort((a,b)=>a-b);
+    const W=this.worldW, H=this.worldH, pos={};
+    const orderIndex={};
+    if (mode==='tree'){
+      const marginY=70, layerGap = layerKeys.length>1 ? (H-marginY*2)/(layerKeys.length-1) : 0;
+      layerKeys.forEach((d,li)=>{
+        let arr=layers[d];
+        if (li>0){ const bary=(id)=>{ const ps=[]; ids.forEach(pid=>{ if((children[pid]||[]).includes(id) && orderIndex[pid]!=null) ps.push(orderIndex[pid]); }); return ps.length? ps.reduce((x,y)=>x+y,0)/ps.length : 1e9; }; arr=arr.slice().sort((a,b)=>bary(a)-bary(b)); layers[d]=arr; }
+        const n=arr.length, marginX=90, gap = n>1 ? (W-marginX*2)/(n-1) : 0;
+        arr.forEach((id,i)=>{ pos[id]={ x:Math.round(n>1? marginX+gap*i : W/2), y:Math.round(marginY+layerGap*li) }; orderIndex[id]=i; });
+      });
+    } else { // radial
+      const cx=W/2, cy=H/2, maxR=Math.min(W,H)*0.42;
+      layerKeys.forEach((d,li)=>{ const arr=layers[d]; const n=arr.length;
+        const r = layerKeys.length>1 ? (li===0 ? (n>1?maxR*0.14:0) : (li/(layerKeys.length-1))*maxR) : 0;
+        arr.forEach((id,i)=>{ if(r===0){ pos[id]={x:Math.round(cx),y:Math.round(cy)}; } else { const a=(i/n)*Math.PI*2 - Math.PI/2; pos[id]={x:Math.round(cx+Math.cos(a)*r), y:Math.round(cy+Math.sin(a)*r)}; } });
+      });
+    }
+    return { ...s.positions, ...pos }; // keep folded/hidden nodes where they were
+  }
 
   // ---- mode / chrome ----
   setMode(m){
@@ -1814,7 +1953,7 @@ class Component extends DCLogic {
     const justMastered = mastered && !st.mastered;
     this.setState(s => ({ nodes: { ...s.nodes, [id]: { ...s.nodes[id], state: { ...s.nodes[id].state, visited:true, confidence, confusionScore, mastered } } } }));
     if (opts.silent) return;
-    if (justMastered) this.fireRules('on_mastery', id);
+    if (justMastered){ this.pulseNode(id); this.fireRules('on_mastery', id); }
     else if (confusionScore >= 0.6) this.fireRules('on_confusion', id);
   }
   downstreamOf(id){ const e = this.state.edges.find(e => e.source===id && ['leads_to','deepens','requires','supports'].includes(e.relationship)); return e ? this.state.nodes[e.target] : null; }
@@ -2047,7 +2186,7 @@ class Component extends DCLogic {
     const isAI = (opts.by === 'ai');
     const node = { id, label, type: this.typeMeta[type]?type:'concept', summary: opts.summary || (label + ' — a concept you introduced. Reflect on it to deepen its meaning.'), content: opts.content || '', difficulty: opts.d||2, tags:[], createdBy: opts.by||'user', trustLevel: opts.trust||'local', review: isAI ? 'pending' : 'none', support: opts.support || (isAI ? 'Generated by the runtime from the parent concept’s pattern — no external source. Treat it as a prompt for your own thinking, not a settled fact.' : ''), state:{ visited:true, mastered:false, confidence: opts.conf??0.05, confusionScore:0 } };
     const pos = { x: opts.x ?? (this.worldW/2 + (Math.random()*120-60)), y: opts.y ?? (this.worldH/2 + (Math.random()*120-60)) };
-    this.setState(s => ({ nodes:{ ...s.nodes, [id]:node }, positions:{ ...s.positions, [id]:pos }, lastAdded:id, selected: opts.select? id : s.selected }), ()=>this.autoRechapter());
+    this.setState(s => ({ nodes:{ ...s.nodes, [id]:node }, positions:{ ...s.positions, [id]:pos }, lastAdded:id, selected: opts.select? id : s.selected }), ()=>{ this.autoRechapter(); if (opts.select) this.pulseNode(id); });
     return id;
   }
 
@@ -2234,6 +2373,7 @@ class Component extends DCLogic {
     const node = this.state.nodes[id];
     if (!node) return;
     this.setState({ reflect: { mode:'reflect', nodeId:id, rootLabel:node.label, nodeLabel:node.label, question: this.questionFor[id] || ('What lies beneath “'+node.label+'” that you have not yet named?'), depth:0, input:'' }, selected:id, focus:id });
+    this.pulseNode(id);
   }
   cancelReflect(){ this.setState({ reflect:null }); }
   onReflectInput = (e) => { const v = e.target.value; this.setState(s => ({ reflect: s.reflect ? { ...s.reflect, input:v } : null })); };
@@ -2788,11 +2928,12 @@ class Component extends DCLogic {
         background: '#141a23', border:'1.5px '+trustStroke+' '+(mastered?'#5bb39a':meta.c), borderRadius:'10px', padding:'8px 11px 9px',
         cursor:'grab', userSelect:'none', opacity: dim?0.4:1,
         animation: id===s.lastAdded ? 'pulseIn .5s cubic-bezier(.3,.8,.3,1)' : 'none',
+        transition: s.layoutAnim ? 'left .45s cubic-bezier(.4,.9,.3,1), top .45s cubic-bezier(.4,.9,.3,1)' : 'none',
         boxShadow, zIndex: sel?5:(mastered||isSuggest)?4:onPath?3:2,
       };
       const sealGlyph = mastered ? '✓' : (isSuggest ? '➜' : (isConfused ? '~' : (aiPending ? '?' : '')));
       const sealColor = mastered ? '#5bb39a' : (isSuggest ? '#d4b15f' : (isConfused ? '#cf6a4f' : '#b59bd6'));
-      return { id, label:n.label, code:meta.code, typeColor:meta.c, byGlyph, byColor, sealOn: !!sealGlyph, sealGlyph, sealColor, conf: Math.round((n.state?.confidence||0)*100)+'%', confColor: mastered?'#5bb39a':meta.c, style, onDown: (e)=>this.startDrag(id,e), onLinkDown: (e)=>this.beginLink(id,e), cluster: clusterCount>0, clusterCount, clusterLabel: '▣ '+clusterCount+' folded · expand', onExpand: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.expandCluster(id); } };
+      return { id, label:n.label, code:meta.code, typeColor:meta.c, byGlyph, byColor, sealOn: !!sealGlyph, sealGlyph, sealColor, conf: Math.round((n.state?.confidence||0)*100)+'%', confColor: mastered?'#5bb39a':meta.c, style, pulseOn: !!(s.pulse && s.pulse.id===id), pulseKey: 'pl'+((s.pulse&&s.pulse.key)||0), onDown: (e)=>this.startDrag(id,e), onLinkDown: (e)=>this.beginLink(id,e), cluster: clusterCount>0, clusterCount, clusterLabel: '▣ '+clusterCount+' folded · expand', onExpand: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.expandCluster(id); } };
     }).filter(Boolean);
 
     // ---- inspector ----
@@ -2977,7 +3118,9 @@ class Component extends DCLogic {
       book, graph: { nodes, edges, worldW:this.worldW, worldH:this.worldH, scale:s.graphScale, canvasCursor:'default', onCanvasDown:this.onCanvasDown, onWheel:this.graphWheel, linkLine, linkPicker,
         transform: 'translate(calc(-50% + '+((s.graphPan&&s.graphPan.x)||0)+'px), calc(-50% + '+((s.graphPan&&s.graphPan.y)||0)+'px)) scale('+(s.graphScale*(s.graphZoom||1))+')',
         zoomPct: Math.round((s.graphZoom||1)*100)+'%',
-        onZoomIn:()=>this.graphZoomBy(1.2), onZoomOut:()=>this.graphZoomBy(1/1.2), onResetView:()=>this.graphResetView() },
+        onZoomIn:()=>this.graphZoomBy(1.2), onZoomOut:()=>this.graphZoomBy(1/1.2), onResetView:()=>this.graphResetView(),
+        layout: s.graphLayout||'free',
+        layouts: ['free','tree','radial'].map(k=>{ const active=(s.graphLayout||'free')===k; return { key:k, label: k==='free'?'Free':k==='tree'?'⌆ Tree':'❉ Radial', active, onClick:()=>this.applyGraphLayout(k), style:{ padding:'5px 9px', borderRadius:'6px', cursor:'pointer', fontFamily:"'IBM Plex Mono',monospace", fontSize:'10px', letterSpacing:'.06em', color: active?'#0c0f14':'#a9bdd8', background: active?'#d4b15f':'transparent', whiteSpace:'nowrap', transition:'background .15s' } }; }) },
       inspector, reflect, confirm, term, modules, pending, ob, orbitDetail,
       onStartTour:()=>this.startOnboard(), onStartTourKey:key2(()=>this.startOnboard()),
       notes: {
@@ -3066,7 +3209,7 @@ class Component extends DCLogic {
     if (exists){ this.setState({ linkPicker:null }); this.pushEvent('link already exists between those nodes'); return; }
     const edge = { id:'ue_'+Date.now(), source:lp.from, target:lp.to, relationship:rel, weight:.55, explanation:'', createdBy:'user' };
     this.setState(s => ({ edges:[...s.edges, edge], linkPicker:null, selected:lp.from }));
-    this.pushEvent('↝ linked “'+lp.fromLabel+'” '+rel.replace(/_/g,' ')+' “'+lp.toLabel+'”');
+    this.pushEvent('↝ linked “'+lp.fromLabel+'” '+rel.replace(/_/g,' ')+' “'+lp.toLabel+'”'); this.pulseNode(lp.from);
     if (this.state.termOpen) this.termOut([{t:'  ↝ edge ',role:'ok'},{t:lp.fromLabel,role:'node'},{t:' —'+rel+'→ ',role:'dim'},{t:lp.toLabel,role:'node'}]);
   }
 }

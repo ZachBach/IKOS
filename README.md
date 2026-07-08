@@ -88,13 +88,13 @@ Implemented as a single **Design Component** (`Iterative Knowledge OS.dc.html`):
 | **📖 Book** | A narrative spread composed live from the current chapter's path. Three voices: *stoic*, *plain*, *technical* (telemetry lines). Page-flip turns; single reading column in Split view. | Read, switch voice, click `[[concept]]` links, 🔊 have it read aloud, begin a **new book** at the last page |
 | **🕸 Graph** | Draggable typed nodes, labeled edges, gold = chapter path, green ring = mastered. Pan/zoom canvas with −/+/⌂ controls; clickable minimap. | Drag to arrange, drag the **↝ handle** to connect, tap to inspect, **fold** clusters, reflect/assess |
 | **▶ Terminal** | A REPL (`~`) that accepts commands *and* natural language. 🎙 dictation supported. | Drive every part of the state from the keyboard — or by voice |
-| **◉ Orbit** | Concepts as spinning wireframe **planets** on typed shells, starfield behind, edges as arcs. **WebGPU + TSL node materials** by default, triple-fallback to classic WebGL (badge + engine toggle in the camera menu). | Drag to rotate (with momentum), scroll to zoom, camera presets (front/top/tilt/wide), click a planet → detail modal: summary, connected concepts, reflect, **grow/destroy**, attach video |
+| **◉ Orbit** | Concepts as spinning wireframe **planets** on typed shells, starfield behind, edges as arcs. Mastered planets and hubs grow **Saturn-like rings**, and each planet spawns **moons** (one per connection) on tilted orbits; **shooting-star comets** streak the backdrop. **WebGPU + TSL node materials** by default, triple-fallback to classic WebGL (badge + engine toggle in the camera menu). | Drag to rotate (with momentum), scroll to zoom, camera presets (front/top/tilt/wide), **click a planet to fly the camera _into_ it** → detail modal: summary, connected concepts, reflect, **grow/destroy**, attach video |
 
 ---
 
 ## Books & chapters
 
-Chapters are generated **automatically: every 3 nodes forms a chapter** (`rechapter [n]` re-chunks at a different size). Every **12 chapters closes a book** and opens the next volume — The Porch, The Simulator, Exploring the Universe, The War Games… — with themed rail headers and a ringed planet on the chapter face from Book II on.
+Chapters are generated **automatically — every 3 nodes form a chapter** (`rechapter [n]` re-chunks at a different size). Every **12 chapters closes a book** and opens the next volume — The Porch, The Simulator, Exploring the Universe, The War Games… — with themed rail headers and a ringed planet on the chapter face from Book II on.
 
 At the last page: **“Begin a new book?”** Name any topic and IKOS opens a fresh volume with a cover concept and starter nodes, ready to grow.
 
@@ -192,15 +192,15 @@ Open with `~`. Accepts commands and natural language.
 
 ## Running locally
 
-No build step. It's a static site.
+No build step — it's a static site. Serve the folder with any static server:
 
 ```bash
-# any static server works
 npx serve .
-# then open http://localhost:3000
+# then open the printed URL (e.g. http://localhost:3000)
 ```
 
-Or just open `index.html` (the bundled standalone build) directly in a browser.
+Or open `index.html` (the bundled standalone build) directly in a browser — double-clicking the
+file works, though a static server avoids browser `file://` restrictions.
 
 State persists to `localStorage` under `ikos_state_v1`. Type `reset` in the terminal for a clean seed.
 
@@ -208,13 +208,28 @@ State persists to `localStorage` under `ikos_state_v1`. Type `reset` in the term
 
 ## Deploying
 
-The repo is Vercel-ready — `vercel.json` serves `index.html` at every route.
+The repo is Vercel-ready — `vercel.json` serves `index.html` at every route. Deploy with the
+Vercel CLI, or connect the repo to Vercel's Git integration and push:
 
 ```bash
 vercel deploy
 ```
 
-Or connect the repo to Vercel's git integration and push.
+`index.html` is a **bundled output, not hand-written** — it's generated from the DC source
+(`Iterative Knowledge OS.dc.html`) by the `dc-runtime` toolchain (`bun run build`). Edit the DC
+source, rebuild, then deploy. A lightweight in-repo regenerator is also included for source-only
+edits, so you can ship without the full toolchain:
+
+```bash
+# after editing "Iterative Knowledge OS.dc.html" or support.js
+node build.mjs      # regenerates index.html (the deploy artifact) from source
+vercel deploy
+```
+
+`build.mjs` reproduces what the DC bundler does — swaps `./support.js` for its manifest asset,
+transplants the injected self-hosted-font `<helmet>`, re-gzips `support.js`, and runs a
+round-trip self-check. (Fonts are frozen; adding a new font family still needs a full `dc-runtime`
+rebuild.) Either way, do not hand-edit `index.html`.
 
 ---
 
@@ -222,14 +237,20 @@ Or connect the repo to Vercel's git integration and push.
 
 ```
 .
-├── index.html                     # bundled standalone build (deploy target)
+├── index.html                     # bundled standalone build (deploy target — generated)
 ├── Iterative Knowledge OS.dc.html # source Design Component (all state + renderers)
 ├── support.js                     # DC runtime
+├── build.mjs                      # regenerates index.html from source (run before deploy)
 ├── vercel.json                    # static hosting config
+├── TODO.md                        # roadmap & task checklist
 └── README.md
 ```
 
-> **Source of truth is `Iterative Knowledge OS.dc.html`.** `index.html` is a compiled bundle — it lags the source; regenerate it before deploying rather than editing it directly.
+> **Source of truth is `Iterative Knowledge OS.dc.html`.** `index.html` is a generated bundle —
+> regenerate it with `node build.mjs` (or the full `dc-runtime` build) before deploying, rather
+> than editing it directly.
+
+See [TODO.md](TODO.md) for the roadmap — the tactical-command direction, scale/perf work, mobile, and IKOS ↔ EHR ↔ echoUniverse convergence.
 
 ---
 
