@@ -1,0 +1,11 @@
+{
+  "name": "ikos",
+  "private": true,
+  "type": "module",
+  "license": "SEE COPYRIGHT",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "npx serve .",
+    "check": "node build.mjs && node scripts/check-bundle.mjs"
+  }
+}

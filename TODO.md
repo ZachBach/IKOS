@@ -31,8 +31,8 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs a decision
 - [x] 🐙 Add a `.gitignore` (node_modules, `.DS_Store`, `.vercel`, `*.log`, scratch).
 - [x] 🧠 Removed the stale duplicate source in `uploads/` (`Iterative Knowledge OS.dc.html`, `support.js`)
       that shadowed the real source. Screenshots kept (unused by README — move to `docs/` if you like).
-- [ ] 🐙 Add a `package.json` with `"build": "node build.mjs"` and `"dev": "npx serve ."` scripts. → [COPILOT_TASKS.md T1](COPILOT_TASKS.md)
-- [ ] 🐙 Add a tiny CI check (GitHub Action): `node build.mjs` must run clean and the
+- [x] 🐙 Add a `package.json` with `"build": "node build.mjs"` and `"dev": "npx serve ."` scripts. → [COPILOT_TASKS.md T1](COPILOT_TASKS.md)
+- [x] 🐙 Add a tiny CI check (GitHub Action): `node build.mjs` must run clean and the
       template's inline script must pass `node --check`. → [COPILOT_TASKS.md T2](COPILOT_TASKS.md)
 
 ---
@@ -50,27 +50,35 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs a decision
       plus a burst when you dive into a planet.
 
 **Next / polish:**
-- [ ] 🧠 Wire cosmic events to *state* changes, not just ambient: a comet on `on_mastery`,
-      a fold implosion when a cluster collapses, a bright birth-flash when a reflection node spawns.
-- [ ] 🧠 Ring detail: subtle radial banding texture (TSL on the WebGPU path, canvas texture on WebGL),
-      a faint shadow the ring casts on the planet.
-- [ ] 🧠 Moons carry meaning: size/colour a moon by the *edge type* it represents, and let a moon
-      be clickable to fly to the connected concept (turns decoration into navigation).
-- [ ] 🧠 Perf guard: cap total rings+moons past N nodes; drop to LOD billboards when zoomed out
-      (see [§3 capacity](#3--scale--performance)).
+- [x] 🧠 Wire cosmic events to *state* changes, not just ambient — `on_mastery` fires a gold
+      shockwave + comet and the planet **earns its rings live** (`orbitMastered`, no rebuild);
+      folding a cluster **implodes** into the abstraction planet (`spawnShock 'implode'`);
+      a new reflection arrives with a violet **birth-flash** (`spawnShock 'burst'`).
+- [x] 🧠 Ring detail — `makeRingSystem` (shared by `buildOrbital` + the live `orbitMastered`
+      upgrade): fine radial banding via a TSL node material on WebGPU (`makeRingMaterial`,
+      procedural `sin(d·140)` bands) with a deterministic concentric canvas texture on classic
+      WebGL, plus a faint feathered shadow band the rings cast around the planet's ring-plane
+      equator (`makeRingShadowTexture`).
+- [x] 🧠 Moons carry meaning — each moon now *is* an edge: coloured by relationship type
+      (`relColor`), sized by edge weight, and **clickable** — clicking a moon flies the camera
+      to the concept on the other end of that edge (decoration → navigation).
+- [x] 🧠 Perf guard — decoration budgets in `buildOrbital` shrink with graph size: >120 nodes
+      → 2 moons max, >250 → none; >180 → only mastered planets keep rings; >150 → labels only on
+      landmarks (mastered/pinned/hubs). At strategic zoom-out the loop culls moons + non-priority
+      labels (see [§3 capacity](#3--scale--performance)).
 
 ---
 
 ## 2 · Mobile-responsive design
 
-- [ ] 🐙 Audit fixed pixel widths / `min-width` in the four views; convert to `clamp()` / `%` / `dvh`.
-- [ ] 🐙 Collapse the 4-up Split layout to a **swipeable single view** with a bottom tab bar
+- [x] 🐙 Audit fixed pixel widths / `min-width` in the four views; convert to `clamp()` / `%` / `dvh`.
+- [x] 🐙 Collapse the 4-up Split layout to a **swipeable single view** with a bottom tab bar
       (Book · Graph · Terminal · Orbit) under ~720px.
-- [ ] 🐙 Touch targets ≥ 44px; terminal input avoids the iOS zoom-on-focus (font-size ≥ 16px).
+- [x] 🐙 Touch targets ≥ 44px; terminal input avoids the iOS zoom-on-focus (font-size ≥ 16px).
 - [ ] 🧠 Graph/Orbit gestures: pinch-zoom + one-finger pan already partly work via pointer events —
       verify on touch, add momentum, prevent page scroll capture.
-- [ ] 🐙 Detail modal + Modules browser: full-screen sheets on mobile instead of floating cards.
-- [ ] 🐙 Respect `prefers-reduced-motion` (dampen orbit spin, page-flip, comet spawns).
+- [x] 🐙 Detail modal + Modules browser: full-screen sheets on mobile instead of floating cards.
+- [x] 🐙 Respect `prefers-reduced-motion` (dampen orbit spin, page-flip, comet spawns).
 
 ---
 
@@ -94,7 +102,10 @@ The walls, in order you'll hit them:
    → migrate to IndexedDB; store positions as typed arrays.
 
 - [ ] 🧠 Canvas/instanced render path for Graph and Orbit (unlocks 1000s of nodes).
-- [ ] 🧠 Label & ring/moon LOD tied to camera distance / zoom.
+- [x] 🧠 Label & ring/moon LOD tied to camera distance / zoom — past cam-z 880 moons hide (and
+      skip their per-frame orbit math), labels survive only on pinned/mastered planets; rings stay
+      by design (they're the readable identity of gas giants at distance). Build-time budgets
+      (above) handle the node-count axis; instanced rendering still open (first item).
 - [ ] 🧠 IndexedDB persistence + schema versioning.
 - [ ] 🐙 Add a `stress N` terminal command that seeds N synthetic nodes for benchmarking.
 
@@ -109,10 +120,13 @@ the **trunk**, edges as **branches**, and source/root concepts as **roots**.
 - [x] 🧠 Longest-path layering + barycenter cross-reduction, computed from edges (ignores
       `contradicts`/`loops_back_to` so cycles don't break depth); nodes **animate** into place
       (CSS transition, only during a tidy pass) and stay **draggable** afterward. Positions persist.
-- [ ] 🐙 **Polish pass** — width-aware sibling spacing (use `chipW`) + multi-pass barycenter so
-      dense layers don't overlap; fix radial ring crowding. → [COPILOT_TASKS.md T10](COPILOT_TASKS.md)
+- [x] 🐙 **Polish pass** — width-aware sibling spacing (shared `chipW` method) + 3-pass down/up
+      barycenter so dense layers don't overlap; radial rings grow their radius when circumference
+      can't fit the chips. → [COPILOT_TASKS.md T10](COPILOT_TASKS.md)
 - [ ] 🧠 Force-directed relax option (light) to de-overlap dense clusters before tidying.
-- [ ] 🧠 Persist a per-node `pinned` flag so a tidy pass respects user-placed anchors.
+- [x] 🧠 Persist a per-node `pinned` flag so a tidy pass respects user-placed anchors — `n.pinned`
+      (toggled from the graph context menu, inspector, or orbit detail; persists inside `nodes`);
+      `applyGraphLayout` keeps pinned nodes at their user-placed positions.
 
 ---
 
@@ -124,7 +138,10 @@ the **trunk**, edges as **branches**, and source/root concepts as **roots**.
       readouts along the frame; muted slate + gold + signal-green already match the logo.
 - [ ] 🐙 "Command tone" microcopy — events read like orders/telemetry ("NODE 47 · COHERENCE +0.12",
       "FORMATION ALPHA FOLDED"), which the terminal ticker already half-does.
-- [ ] 🧠 A subtle scanline/vignette + boot sequence on load (skippable, reduced-motion aware).
+- [x] 🧠 A subtle scanline/vignette + boot sequence on load — command-tablet glass (hairline
+      scanlines + soft vignette over the stage) and a ~2s telemetry boot sequence (5 staggered
+      lines, ends in "READY"); click/Esc skips, `prefers-reduced-motion` suppresses it entirely,
+      and the first-run tour waits for boot to finish.
 - [ ] 🐙 Sound design (opt-in): soft sonar pings on mastery, a low thrum on view-switch.
 
 ---
@@ -136,11 +153,15 @@ the **trunk**, edges as **branches**, and source/root concepts as **roots**.
 - [x] 🧠 **Command pulse** — `pulseNode(id)` flashes the same concept in every view at once: a
       gold ring pulse on the Graph node **and** a bright burst + comet on the Orbit planet.
       Wired into reflect · grow · master · connect · deliberate add.
-- [~] 🧠 **Data-flow cues** — partial: the synchronized node flash (Graph ↔ Orbit) lands; still
-      want faint connector lines/particles *between* the panes when an action propagates.
-- [ ] 🧠 **Shared selection & highlight** — one `selected` id already exists; ensure a hover in
-      any view softly highlights the same concept everywhere (cross-view "target lock").
-- [ ] 🧠 A one-frame "sync flash" on the frame border when all views recompute from a state write.
+- [x] 🧠 **Data-flow cues** — the synchronized node flash (Graph ↔ Orbit) plus, in Split view,
+      three gold data-packets that streak across the linked panes whenever a command pulse
+      propagates (`dataFlow` keyframes, keyed to `pulse.key`, reduced-motion aware).
+- [x] 🧠 **Shared selection & highlight** — cross-view "target lock" (`setHover` / `state.hover`):
+      hovering a graph chip, a book concept link, or an orbit planet (raycast on pointermove)
+      softly highlights the same concept in all three — gold outline on the chip, full underline
+      in the prose, glow + scale on the planet.
+- [x] 🧠 A one-frame "sync flash" on the frame border when all views recompute from a state write —
+      keyed off the event counter (`syncKey`), reduced-motion aware.
 
 ---
 
@@ -152,7 +173,7 @@ the **trunk**, edges as **branches**, and source/root concepts as **roots**.
       Store as a serializable command list (composes with the module `.json` export format).
 - [ ] 🧠 **Voice orders** — extend the existing 🎙 dictation to natural commands: "Reflect on node 47",
       "Fold cluster Alpha", "Begin a new book on plasma control". (Intent-map onto existing verbs.)
-- [ ] 🐙 Command palette / autocomplete + history (↑/↓) + `?` inline help per command.
+- [x] 🐙 Command palette / autocomplete + history (↑/↓) + `?` inline help per command.
 - [ ] 🧠 `explain last` — narrate what the previous command changed in the graph (teaching aid).
 
 ---
@@ -161,18 +182,25 @@ the **trunk**, edges as **branches**, and source/root concepts as **roots**.
 
 *Make mastery feel like progress toward qualification, earned only by deliberate reflection.*
 
-- [ ] 🧠 A per-chapter/book **Coherence (readiness) score** 0–100 that rises *only* through
-      genuine explain-back (`evaluateUnderstanding`), decays slightly with unreviewed drift.
-- [ ] 🐙 Surface it as a thin readiness meter on the chapter face + book spine (green→gold, matches rings).
+- [x] 🧠 A per-chapter/book **Coherence (readiness) score** 0–100 that rises *only* through
+      genuine explain-back (`evaluateUnderstanding`), decays slightly with unreviewed drift —
+      `nodeCoherence` / `chapterCoherence` / `bookCoherence`: confidence alone caps a node at 45%;
+      a substantive Assess stamps `state.explained`+`explainedAt`, lifting the ceiling; unreviewed
+      stamps decay 2%/day after a week (floor 70%); confusion subtracts. Live readout in the
+      status bar (◈ n% coherence, grey→green→gold at 45/80).
+- [ ] 🐙 Surface it as a thin readiness meter on the chapter face + book spine (green→gold, matches
+      rings). The value comes from `chapterCoherence(chapter)` / `bookCoherence()` — already live.
 - [ ] 🧠 "Qualification" gates: a book unlocks a badge / new capability when coherence clears a bar.
-- [ ] 🧠 Tie the Orbit ring count to coherence tier so mastery is *visible* across views ([§5](#5--synchronized-tactical-displays)).
+- [x] 🧠 Tie the Orbit ring count to coherence tier so mastery is *visible* across views ([§5](#5--synchronized-tactical-displays)) —
+      mastered planets get the full triple-ring crown only once explained-back; un-assessed mastery
+      wears 2 bands (applies live in `orbitMastered` and on rebuild).
 
 ---
 
 ## 8 · Graph as the tactical map
 
 - [ ] 🧠 **Formations** — group nodes into named clusters; move/collapse/colour as a unit.
-- [ ] 🐙 **Orders via right-click / context menu** — reflect, connect, fold, pin, "send to Orbit".
+- [x] 🐙 **Orders via right-click / context menu** — reflect, connect, fold, pin, "send to Orbit".
 - [ ] 🧠 **Replay / undo stack** — a visual history of graph edits you can scrub (how the graph evolved).
 - [ ] 🧠 Tree/branch/root layout — see [§3b](#3b--graph-auto-layout--tree-with-branches--roots).
 
@@ -180,8 +208,9 @@ the **trunk**, edges as **branches**, and source/root concepts as **roots**.
 
 ## 9 · Orbit as the strategic overview
 
-- [ ] 🧠 **Lock / pin high-priority concepts** — pinned planets stay prominent (brighter, larger,
-      keep their label) and pulse when you zoom out; others dim.
+- [x] 🧠 **Lock / pin high-priority concepts** — pinned planets stay prominent (brighter, larger,
+      keep their label even with labels off) and pulse when you zoom out (>880 cam-z); others dim.
+      Toggle via ⌖ Pin in the orbit detail modal, the graph inspector, or the node context menu.
 - [ ] 🧠 "Strategic zoom" — zooming out clusters planets by book/shell into labelled constellations.
 - [ ] 🧠 Pinned set drives the [command pulse](#5--synchronized-tactical-displays) priority.
 

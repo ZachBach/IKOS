@@ -11,8 +11,8 @@
 // the original bundler applied to the source, WITHOUT re-fetching fonts:
 //
 //   1. <script src="./support.js"> → <script src="{support-uuid}">
-//   2. the source <helmet> (external Google-Fonts <link>s) is swapped for the
-//      bundle's <helmet> (injected @font-face rules pointing at the font uuids).
+//   2. the source <helmet> keeps its current styles while its external
+//      Google-Fonts links are replaced by the bundle's @font-face rules.
 //
 // It also re-gzips the current support.js into the manifest so runtime edits ship.
 //
@@ -47,11 +47,18 @@ const manifest = JSON.parse(manTag[2]);
 const supportUuid = Object.keys(manifest).find((k) => manifest[k].mime === 'text/javascript');
 if (!supportUuid) die('could not find the support.js asset (text/javascript) in the manifest');
 
-// the font <helmet> injected by the bundler (contains @font-face → font uuids)
+// The old bundled helmet contains frozen self-hosted font faces plus an old
+// source stylesheet. Keep only the font faces so new source CSS ships.
 const helmetRe = /<helmet>[\s\S]*?<\/helmet>/;
 const injectedHelmet = (oldTemplate.match(helmetRe) || [])[0];
 if (!injectedHelmet) die('could not find <helmet> block in the bundled template');
 if (!helmetRe.test(dc)) die('could not find <helmet> block in the source ' + DC);
+const sourceHelmet = dc.match(helmetRe)[0];
+const fontFaceStyles = (injectedHelmet.match(/<style>[\s\S]*?<\/style>/g) || []).filter(style => style.includes('@font-face')).join('\n');
+if (!fontFaceStyles) die('could not find bundled @font-face rules in the existing helmet');
+const newHelmet = sourceHelmet
+  .replace(/<link[^>]+href=["'][^"']*fonts\.(?:googleapis|gstatic)\.com[^"']*["'][^>]*>\s*/g, '')
+  .replace('</helmet>', fontFaceStyles + '</helmet>');
 
 const supportTag = '<script src="./support.js"></script>';
 if (!dc.includes(supportTag)) die('source ' + DC + ' does not reference ' + supportTag);
@@ -59,7 +66,7 @@ if (!dc.includes(supportTag)) die('source ' + DC + ' does not reference ' + supp
 // --- transform source → template ---
 const newTemplate = dc
   .replace(supportTag, '<script src="' + supportUuid + '"></script>')
-  .replace(helmetRe, () => injectedHelmet);
+  .replace(helmetRe, () => newHelmet);
 
 // --- refresh support.js in the manifest (gzip → base64) so runtime edits ship ---
 manifest[supportUuid] = { ...manifest[supportUuid], compressed: true, data: zlib.gzipSync(support).toString('base64') };

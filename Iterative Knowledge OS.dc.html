@@ -35,11 +35,23 @@
   }
   @keyframes termRise { from { transform: translateY(14px); } to { transform: translateY(0); } }
   @keyframes fadeUp { from { transform: translateY(8px); } to { transform: none; } }
+  @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   @keyframes tick { from { transform: translateY(-2px); } to { transform: none; } }
   @keyframes sealIn { 0% { transform: scale(.4) rotate(-12deg); } 70% { transform: scale(1.15) rotate(3deg); } 100% { transform: scale(1) rotate(0); } }
   /* cross-view command pulse (§5): a node flashing in every view at once */
   @keyframes cmdPulse { 0% { opacity: .9; transform: scale(.92); } 100% { opacity: 0; transform: scale(1.5); } }
-  @media (prefers-reduced-motion: reduce) { [style*="cmdPulse"] { animation-duration: .01ms !important; } }
+  /* §5: sync flash — the stage frame blinks once whenever a state write recomputes all views */
+  @keyframes syncFlash { 0% { opacity: .5; } 100% { opacity: 0; } }
+  /* §4: boot sequence — telemetry lines type in, then the whole overlay fades */
+  @keyframes bootLine { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @keyframes bootOut { to { opacity: 0; } }
+  /* §5: data-flow cue — a command pulse sends gold packets streaking across the linked displays */
+  @keyframes dataFlow { 0% { transform: translateX(-12px); opacity: 0; } 12% { opacity: .9; } 100% { transform: translateX(94vw); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    [style*="cmdPulse"], [style*="syncFlash"], [style*="bootLine"], [style*="bootOut"], [style*="dataFlow"] { animation-duration: .01ms !important; }
+    [style*="pageTurn"], [style*="pageFlip"], [style*="pageFlipShade"], [style*="sheetUp"] { animation:none !important; }
+  }
+  [data-role="mobiletabs"] { display:none; }
   /* focus visibility for keyboard users */
   [role="button"]:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2px solid #d4b15f; outline-offset: 2px; border-radius: 4px; }
   /* ---- responsive / mobile ---- */
@@ -74,6 +86,19 @@
     [data-role="modeswitch"] { flex-wrap: wrap !important; }
     [data-role="orbitmenu"] { position: static !important; width: auto !important; margin: 10px !important; }
     [data-role="detailpanel"] { width: 96% !important; }
+    [data-role="statussaved"] { display: none !important; }
+    [data-role="ticker"] { flex: 1 1 100% !important; min-width: 0 !important; }
+  }
+  @media (max-width: 720px) {
+    [data-role="modeswitch"] { display:none !important; }
+    [data-role="mainbody"] { padding-bottom:52px !important; }
+    [data-role="mobiletabs"] { position:absolute; left:0; right:0; bottom:0; z-index:56; display:grid !important; grid-template-columns:repeat(4, minmax(0,1fr)); height:52px; border-top:1px solid #394253; background:#0c0f14f2; box-shadow:0 -10px 24px -16px #000; touch-action:pan-y; }
+    [data-role="term"][data-mobile-full="true"] { bottom:52px !important; height:calc(100% - 52px) !important; }
+    [data-role="modoverlay"], [data-role="detailoverlay"] { align-items:flex-end !important; padding-top:8px !important; }
+    [data-role="modpanel"], [data-role="detailpanel"] { width:100% !important; height:calc(100% - 8px) !important; max-height:calc(100% - 8px) !important; border-radius:10px 10px 0 0 !important; border-bottom:none !important; animation:sheetUp .22s cubic-bezier(.3,.8,.3,1) !important; }
+    [data-role="modclose"], [data-role="detailclose"] { width:44px !important; height:44px !important; display:flex !important; align-items:center !important; justify-content:center !important; flex:0 0 auto !important; }
+    [data-role="osbar"] [role="button"], [data-role="term"] [role="button"] { min-width:44px !important; min-height:44px !important; }
+    [data-role="term"] input { font-size:16px !important; }
   }
 </style>
 </helmet>
@@ -95,7 +120,7 @@
     <!-- mode switcher -->
     <div data-role="modeswitch" style="display:flex; align-items:center; gap:3px; padding:3px; border:1px solid {{ ui.hair }}; border-radius:9px; background:#0c0f14;">
       <sc-for list="{{ ui.modes }}" as="m" hint-placeholder-count="3">
-        <div onClick="{{ m.onClick }}" onKeyDown="{{ m.onKey }}" role="button" tabindex="0" aria-pressed="{{ m.selected }}" aria-label="{{ m.ariaLabel }}" style="{{ m.style }}" title="{{ m.title }}">{{ m.label }}</div>
+        <div data-mode="{{ m.id }}" onClick="{{ m.onClick }}" onKeyDown="{{ m.onKey }}" role="button" tabindex="0" aria-pressed="{{ m.selected }}" aria-label="{{ m.ariaLabel }}" style="{{ m.style }}" title="{{ m.title }}">{{ m.label }}</div>
       </sc-for>
     </div>
 
@@ -169,6 +194,18 @@
     </svg>
   </template>
 
+  <!-- ======== BOOT SEQUENCE (§4) — skippable, reduced-motion aware ======== -->
+  <sc-if value="{{ boot.active }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ boot.onSkip }}" role="button" tabindex="0" aria-label="Skip boot sequence" style="position:absolute; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; background:#06080bf5; cursor:pointer; opacity:1; animation:bootOut .4s ease 1.8s forwards;">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; line-height:2.1; color:#8a9ab4; min-width:min(84%,430px);">
+        <sc-for list="{{ boot.lines }}" as="bl" hint-placeholder-count="5">
+          <div style="{{ bl.style }}"><span style="color:{{ bl.color }};">{{ bl.glyph }}</span>&nbsp; {{ bl.text }}</div>
+        </sc-for>
+        <div style="margin-top:16px; font-size:9px; letter-spacing:.22em; color:#4a5468; animation:blink 1.2s step-end infinite;">TAP TO SKIP</div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- ======== ONBOARDING TOUR ======== -->
   <sc-if value="{{ ob.active }}" hint-placeholder-val="{{ false }}">
     <div style="position:absolute; inset:0; z-index:70; display:flex; align-items:flex-end; justify-content:center; background:radial-gradient(120% 90% at 50% 40%, #06080b66, #06080bdd); animation:fadeUp .3s ease;">
@@ -211,16 +248,17 @@
       <span style="color:#5bb39a;">●</span> {{ stats.nodes }} nodes
       <span style="color:#7c93b4;">●</span> {{ stats.edges }} edges
       <span style="color:#5bb39a;">✓</span> {{ stats.mastered }} mastered
-      <span style="display:flex; align-items:center; gap:4px; color:{{ saved.color }}; margin-left:2px;" title="your graph, reflections & mastery autosave to this browser">⛁ {{ saved.label }}</span>
+      <span style="display:flex; align-items:center; gap:4px; color:{{ stats.cohColor }};" title="chapter coherence — readiness earned only through explain-back (Assess); drifts down when unreviewed">◈ {{ stats.coherence }} coherence</span>
+      <span data-role="statussaved" style="display:flex; align-items:center; gap:4px; color:{{ saved.color }}; margin-left:2px;" title="your graph, reflections & mastery autosave to this browser">⛁ {{ saved.label }}</span>
       <sc-if value="{{ pending.has }}" hint-placeholder-val="{{ false }}">
         <span onClick="{{ pending.onClick }}" role="button" tabindex="0" aria-label="{{ pending.label }}" title="AI suggestions awaiting your review — click to review" style="display:flex; align-items:center; gap:4px; color:#b59bd6; margin-left:2px; cursor:pointer;" style-hover="color:#cdbce6;">✦ {{ pending.count }} pending</span>
       </sc-if>
     </div>
     <div style="flex:1 1 auto;"></div>
     <sc-if value="{{ ui.showTicker }}" hint-placeholder-val="{{ true }}">
-      <div key="{{ lastEvent.key }}" style="display:flex; align-items:center; gap:8px; animation:tick .4s ease; color:#9a9486; min-width:0; flex:0 1 auto; overflow:hidden;">
+      <div key="{{ lastEvent.key }}" data-role="ticker" style="display:flex; align-items:center; gap:8px; animation:tick .4s ease; color:#9a9486; min-width:0; flex:0 1 auto; overflow:hidden;">
         <span style="color:{{ ui.accent }}; font-size:9px; white-space:nowrap;">▸ runtime</span>
-        <span style="color:#bdb7a8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ lastEvent.text }}</span>
+        <span style="min-width:0; color:#bdb7a8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ lastEvent.text }}</span>
       </div>
     </sc-if>
   </div>
@@ -235,7 +273,20 @@
   </sc-if>
 
   <!-- ======== BODY ======== -->
-  <div style="flex:1 1 auto; display:flex; min-height:0; position:relative;">
+  <div data-role="mainbody" style="flex:1 1 auto; display:flex; min-height:0; position:relative;">
+    <!-- §5: sync flash — keyed by the event counter so it re-fires on every state write -->
+    <div key="sync-{{ syncKey }}" aria-hidden="true" style="position:absolute; inset:0; z-index:45; pointer-events:none; border:1px solid #d4b15f77; box-shadow:inset 0 0 26px #d4b15f1c; opacity:0; animation:syncFlash .5s ease-out;"></div>
+    <!-- §4: command-tablet glass — subtle scanlines + vignette over the whole stage -->
+    <div aria-hidden="true" style="position:absolute; inset:0; z-index:44; pointer-events:none; opacity:.45; background:repeating-linear-gradient(0deg, transparent 0px, transparent 2px, #00000014 3px);"></div>
+    <div aria-hidden="true" style="position:absolute; inset:0; z-index:44; pointer-events:none; background:radial-gradient(115% 100% at 50% 45%, transparent 62%, #06080b4d 100%);"></div>
+    <!-- §5: data-flow cue — gold packets streak across the linked displays when a command pulse propagates -->
+    <sc-if value="{{ flow.on }}" hint-placeholder-val="{{ false }}">
+      <div key="flow-{{ flow.key }}" aria-hidden="true" style="position:absolute; inset:0; z-index:46; pointer-events:none;">
+        <div style="position:absolute; top:38%; left:0; width:9px; height:2px; border-radius:2px; background:#d4b15f; box-shadow:0 0 9px #d4b15f; opacity:0; animation:dataFlow .55s ease-out forwards;"></div>
+        <div style="position:absolute; top:50%; left:0; width:13px; height:2px; border-radius:2px; background:#ffe6b0; box-shadow:0 0 9px #d4b15f; opacity:0; animation:dataFlow .55s ease-out .07s forwards;"></div>
+        <div style="position:absolute; top:62%; left:0; width:7px; height:2px; border-radius:2px; background:#d4b15f; box-shadow:0 0 9px #d4b15f; opacity:0; animation:dataFlow .55s ease-out .14s forwards;"></div>
+      </div>
+    </sc-if>
 
     <!-- LEFT RAIL -->
     <div data-role="rail" style="flex:0 0 232px; display:flex; flex-direction:column; border-right:1px solid {{ ui.hair }}; background:#0b0e13; min-height:0;">
@@ -361,7 +412,7 @@
                       </sc-if>
                       <sc-for list="{{ p.runs }}" as="r" hint-placeholder-count="3">
                         <sc-if value="{{ r.isConcept }}" hint-placeholder-val="{{ false }}">
-                          <span onClick="{{ r.onClick }}" title="{{ r.title }}" style="color:#9c4a32; cursor:pointer; font-weight:500; background:linear-gradient(#d4b15f55,#d4b15f55) bottom/100% 0.08em no-repeat; padding-bottom:1px; transition:background-size .15s;" style-hover="background:linear-gradient(#d4b15f99,#d4b15f99) bottom/100% 100% no-repeat;">{{ r.t }}</span>
+                          <span onClick="{{ r.onClick }}" onMouseEnter="{{ r.onEnter }}" onMouseLeave="{{ r.onLeave }}" title="{{ r.title }}" style="{{ r.style }}" style-hover="background:linear-gradient(#d4b15f99,#d4b15f99) bottom/100% 100% no-repeat;">{{ r.t }}</span>
                         </sc-if>
                         <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ true }}">
                           <span>{{ r.t }}</span>
@@ -486,7 +537,7 @@
               </svg>
               <!-- nodes -->
               <sc-for list="{{ graph.nodes }}" as="n" hint-placeholder-count="8">
-                <div onPointerDown="{{ n.onDown }}" style="{{ n.style }}">
+                <div onPointerDown="{{ n.onDown }}" onClick="{{ n.onClick }}" onContextMenu="{{ n.onContextMenu }}" onMouseEnter="{{ n.onEnter }}" onMouseLeave="{{ n.onLeave }}" style="{{ n.style }}">
                   <sc-if value="{{ n.pulseOn }}" hint-placeholder-val="{{ false }}">
                     <div key="{{ n.pulseKey }}" style="position:absolute; inset:-4px; border-radius:12px; border:2px solid #d4b15f; box-shadow:0 0 18px #d4b15f99; pointer-events:none; animation:cmdPulse .9s ease-out forwards;"></div>
                   </sc-if>
@@ -498,6 +549,9 @@
                     <span style="flex:1 1 auto;"></span>
                     <sc-if value="{{ n.sealOn }}" hint-placeholder-val="{{ false }}">
                       <span style="font-size:10px; color:{{ n.sealColor }}; animation:sealIn .4s ease;">{{ n.sealGlyph }}</span>
+                    </sc-if>
+                    <sc-if value="{{ n.pinOn }}" hint-placeholder-val="{{ false }}">
+                      <span title="Pinned" style="font-size:10px; color:#d4b15f;">⌖</span>
                     </sc-if>
                     <span style="font-size:10px; color:{{ n.byColor }};">{{ n.byGlyph }}</span>
                   </div>
@@ -512,7 +566,7 @@
               </sc-for>
             </div>
             <!-- graph hint -->
-            <div style="position:absolute; left:16px; bottom:14px; font-size:11px; color:#818a9c; letter-spacing:.04em; pointer-events:none;">drag empty space to pan · scroll to zoom · drag the ↝ handle to connect · tap empty canvas to create</div>
+            <div style="position:absolute; left:16px; bottom:14px; font-size:11px; color:#818a9c; letter-spacing:.04em; pointer-events:none;">{{ graph.hint }}</div>
 
             <!-- pan / zoom controls -->
             <div style="position:absolute; right:14px; bottom:14px; display:flex; align-items:center; gap:6px; z-index:5;">
@@ -534,6 +588,17 @@
                     </sc-for>
                   </div>
                   <div onClick="{{ graph.linkPicker.onCancel }}" role="button" tabindex="0" aria-label="Cancel connection" style="margin-top:9px; text-align:center; font-size:10px; letter-spacing:.06em; color:#6b6f63; cursor:pointer;" style-hover="color:#cf6a4f;">cancel</div>
+                </div>
+              </div>
+            </sc-if>
+            <!-- graph node orders -->
+            <sc-if value="{{ graph.menu.open }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute; inset:0; z-index:10;" onClick="{{ graph.menu.onClose }}">
+                <div onClick="{{ noop }}" role="menu" aria-label="Node orders" style="position:absolute; left:{{ graph.menu.left }}px; top:{{ graph.menu.top }}px; width:172px; border:1px solid #d4b15f55; border-radius:8px; background:#0e1219f4; backdrop-filter:blur(8px); box-shadow:0 18px 42px -14px #000; padding:5px; animation:fadeUp .16s ease;">
+                  <div style="padding:5px 7px 6px; font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.14em; text-transform:uppercase; color:#8a8576;">node orders</div>
+                  <sc-for list="{{ graph.menu.actions }}" as="a" hint-placeholder-count="5">
+                    <div onClick="{{ a.onClick }}" role="menuitem" tabindex="0" style="padding:8px 9px; border-radius:5px; cursor:pointer; color:{{ a.color }}; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.04em;" style-hover="background:#d4b15f14; color:#f3eee2;">{{ a.label }}</div>
+                  </sc-for>
                 </div>
               </div>
             </sc-if>
@@ -630,6 +695,7 @@
                   <div onClick="{{ inspector.onExpandCluster }}" role="button" tabindex="0" aria-label="Expand this cluster" style="text-align:center; padding:8px; border-radius:8px; cursor:pointer; border:1px solid #d4b15f55; color:#d8c489; font-size:10.5px; letter-spacing:.03em;" style-hover="border-color:#d4b15f; background:#d4b15f10;">⊞ expand cluster ({{ inspector.collapseCount }} hidden)</div>
                 </sc-if>
                 <sc-if value="{{ devMode }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ inspector.onTogglePin }}" role="button" tabindex="0" aria-label="{{ inspector.pinAria }}" title="Pinned concepts stay prominent in the Orbit view" style="text-align:center; padding:8px; border-radius:8px; cursor:pointer; border:1px solid #d4b15f44; color:{{ inspector.pinColor }}; font-size:10.5px; letter-spacing:.03em;" style-hover="border-color:#d4b15f; background:#d4b15f10;">{{ inspector.pinLabel }}</div>
                   <div onClick="{{ inspector.onDelete }}" style="text-align:center; padding:7px; border-radius:8px; cursor:pointer; border:1px solid #cf6a4f44; color:#cf6a4f; font-size:10px; letter-spacing:.08em;" style-hover="background:#cf6a4f18;">⌫ delete node</div>
                 </sc-if>
               </div>
@@ -678,7 +744,7 @@
 
     <!-- ======== TERMINAL DRAWER ======== -->
     <sc-if value="{{ termOpen }}" hint-placeholder-val="{{ false }}">
-      <div data-role="term" style="position:absolute; left:0; right:0; bottom:0; height:42%; display:flex; flex-direction:column; background:#080a0e; border-top:1px solid {{ ui.accent }}66; box-shadow:0 -22px 50px -10px #000000cc, 0 -1px 24px {{ ui.accent }}33; animation:termRise .28s cubic-bezier(.3,.8,.3,1); z-index:50;">
+      <div data-role="term" data-mobile-full="{{ term.mobileFull }}" style="position:absolute; left:0; right:0; bottom:0; height:42%; display:flex; flex-direction:column; background:#080a0e; border-top:1px solid {{ ui.accent }}66; box-shadow:0 -22px 50px -10px #000000cc, 0 -1px 24px {{ ui.accent }}33; animation:termRise .28s cubic-bezier(.3,.8,.3,1); z-index:50;">
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid #ffffff10;">
           <span style="color:{{ ui.accent }}; font-size:12px;">~</span>
           <span style="font-size:10px; letter-spacing:.18em; color:#8a8576; text-transform:uppercase;">REPL · {{ ui.devLabel }}</span>
@@ -698,7 +764,12 @@
         </div>
         <div style="flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:11px 16px; border-top:1px solid #ffffff10; background:#0a0d12;">
           <span style="color:{{ term.promptColor }}; font-size:13px; font-weight:600;">{{ term.prompt }}</span>
-          <input ref="{{ setTermInputRef }}" value="{{ term.input }}" onInput="{{ term.onInput }}" onKeyDown="{{ term.onKey }}" placeholder="{{ term.placeholder }}" spellcheck="false" style="flex:1 1 auto; background:transparent; border:none; outline:none; color:#e8e2d4; font-family:'IBM Plex Mono',monospace; font-size:12.5px; caret-color:#e0a24e;"></input>
+          <div style="position:relative; flex:1 1 auto; min-width:0;">
+            <sc-if value="{{ term.hasSuggestion }}" hint-placeholder-val="{{ false }}">
+              <div aria-hidden="true" style="position:absolute; inset:0; pointer-events:none; color:#596271; font-family:'IBM Plex Mono',monospace; font-size:12.5px; line-height:normal; white-space:pre;">{{ term.suggestion }}</div>
+            </sc-if>
+            <input ref="{{ setTermInputRef }}" value="{{ term.input }}" onInput="{{ term.onInput }}" onKeyDown="{{ term.onKey }}" placeholder="{{ term.placeholder }}" spellcheck="false" style="position:relative; z-index:1; width:100%; box-sizing:border-box; background:transparent; border:none; outline:none; color:#e8e2d4; font-family:'IBM Plex Mono',monospace; font-size:12.5px; caret-color:#e0a24e;"></input>
+          </div>
           <div onClick="{{ voice.onDictate }}" onKeyDown="{{ voice.onDictateKey }}" role="button" tabindex="0" aria-label="Dictate a command by voice" title="Speak a command" style="{{ voice.micStyle }}" style-hover="border-color:#cf6a4f;"><span style="font-size:13px;" aria-hidden="true">🎙</span></div>
           <span style="width:8px; height:15px; background:{{ ui.accent }}; animation:blink 1.1s step-end infinite; opacity:{{ term.cursorOn }};"></span>
         </div>
@@ -730,7 +801,7 @@
 
     <!-- ======== MODULE ECOSYSTEM ======== -->
     <sc-if value="{{ modules.open }}" hint-placeholder-val="{{ false }}">
-      <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#06080bee; backdrop-filter:blur(5px); z-index:58; animation:fadeUp .22s ease;">
+      <div data-role="modoverlay" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#06080bee; backdrop-filter:blur(5px); z-index:58; animation:fadeUp .22s ease;">
         <div data-role="modpanel" role="dialog" aria-label="Module ecosystem" style="width:min(95%,980px); height:min(90%,680px); display:flex; flex-direction:column; border:1px solid {{ ui.hair }}; border-radius:13px; background:#0c0f14; box-shadow:0 50px 110px -25px #000; overflow:hidden;">
           <!-- header -->
           <div style="flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:17px 22px; border-bottom:1px solid {{ ui.hair }}; background:{{ ui.barBg }};">
@@ -741,7 +812,7 @@
             </div>
             <span style="flex:1 1 auto;"></span>
             <span style="font-size:9px; letter-spacing:.12em; color:#8a8576;">{{ modules.installedCount }} installed · {{ modules.devLabel }}</span>
-            <span onClick="{{ modules.onClose }}" style="cursor:pointer; color:#6b6f63; font-size:16px; margin-left:6px;" style-hover="color:#e8e2d4;">✕</span>
+            <span data-role="modclose" onClick="{{ modules.onClose }}" role="button" tabindex="0" aria-label="Close modules" style="cursor:pointer; color:#6b6f63; font-size:16px; margin-left:6px;" style-hover="color:#e8e2d4;">✕</span>
           </div>
           <!-- body -->
           <div data-role="modbody" style="flex:1 1 auto; display:flex; min-height:0;">
@@ -799,7 +870,7 @@
 
     <!-- ======== ORBIT DETAIL MODAL (interactive) ======== -->
     <sc-if value="{{ orbitDetail.open }}" hint-placeholder-val="{{ false }}">
-      <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#06080bee; backdrop-filter:blur(6px); z-index:64; animation:fadeUp .22s ease;" onClick="{{ orbitDetail.onClose }}">
+      <div data-role="detailoverlay" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#06080bee; backdrop-filter:blur(6px); z-index:64; animation:fadeUp .22s ease;" onClick="{{ orbitDetail.onClose }}">
         <div onClick="{{ noop }}" data-role="detailpanel" style="width:min(94%,620px); max-height:88%; overflow-y:auto; border:1px solid {{ orbitDetail.typeColor }}44; border-radius:14px; background:#0e1219f5; box-shadow:0 44px 100px -24px #000; animation:pulseIn .26s ease;">
           <div style="padding:20px 22px; border-bottom:1px solid #ffffff10; display:flex; align-items:center; gap:11px;">
             <span style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.16em; color:{{ orbitDetail.typeColor }}; border:1px solid {{ orbitDetail.typeColor }}55; padding:3px 8px; border-radius:6px;">{{ orbitDetail.code }}</span>
@@ -807,7 +878,7 @@
               <span style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.12em; color:#5bb39a; border:1px solid #5bb39a66; padding:3px 8px; border-radius:6px;">✓ MASTERED</span>
             </sc-if>
             <span style="flex:1 1 auto;"></span>
-            <span onClick="{{ orbitDetail.onClose }}" role="button" tabindex="0" aria-label="Close" style="cursor:pointer; color:#6b6f63; font-size:16px;" style-hover="color:#e8e2d4;">✕</span>
+            <span data-role="detailclose" onClick="{{ orbitDetail.onClose }}" role="button" tabindex="0" aria-label="Close" style="cursor:pointer; color:#6b6f63; font-size:16px;" style-hover="color:#e8e2d4;">✕</span>
           </div>
           <div style="padding:22px;">
             <div style="font-family:'Spectral',serif; font-size:27px; line-height:1.1; color:#f3eee2; margin-bottom:10px;">{{ orbitDetail.label }}</div>
@@ -860,6 +931,7 @@
             <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
               <div onClick="{{ orbitDetail.onReflect }}" role="button" tabindex="0" aria-label="Reflect on this concept" style="padding:11px 18px; border-radius:9px; cursor:pointer; background:linear-gradient(#9c4a32,#7d3a27); color:#f3eee2; font-size:13px;" style-hover="filter:brightness(1.08);">✦ Reflect</div>
               <div onClick="{{ orbitDetail.onGrow }}" role="button" tabindex="0" aria-label="Grow this concept — raise confidence" title="Grow — nurture this planet, raising its confidence" style="padding:11px 15px; border-radius:9px; cursor:pointer; border:1px solid #5bb39a66; color:#7fd3bb; font-size:13px;" style-hover="background:#5bb39a18;">🌱 Grow</div>
+              <div onClick="{{ orbitDetail.onTogglePin }}" role="button" tabindex="0" aria-label="{{ orbitDetail.pinAria }}" title="Pin — a priority target stays bright, large and labelled, and pulses when you zoom out" style="{{ orbitDetail.pinStyle }}" style-hover="border-color:#d4b15f;">{{ orbitDetail.pinLabel }}</div>
               <div onClick="{{ orbitDetail.onDestroy }}" role="button" tabindex="0" aria-label="Destroy this concept — remove it from the graph" title="Destroy — collapse this planet out of the graph" style="padding:11px 15px; border-radius:9px; cursor:pointer; border:1px solid #cf6a4f55; color:#e0805f; font-size:13px;" style-hover="background:#cf6a4f18;">☄ Destroy</div>
               <span style="flex:1 1 auto;"></span>
               <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#6b7488;">confidence {{ orbitDetail.conf }}</span>
@@ -886,6 +958,14 @@
       </div>
     </sc-if>
 
+  </div>
+  <div ref="{{ setMobileTabsRef }}" data-role="mobiletabs" role="tablist" aria-label="Mobile views">
+    <sc-for list="{{ mobileTabs.items }}" as="t" hint-placeholder-count="4">
+      <div data-mobile-view="{{ t.id }}" onClick="{{ t.onClick }}" onKeyDown="{{ t.onKey }}" role="button" tabindex="0" aria-pressed="{{ t.selected }}" aria-label="{{ t.ariaLabel }}" style="{{ t.style }}">
+        <span style="font-size:14px; line-height:1;">{{ t.glyph }}</span>
+        <span style="font-size:9px; letter-spacing:.06em;">{{ t.label }}</span>
+      </div>
+    </sc-for>
   </div>
 </div>
 </x-dc>
@@ -1226,8 +1306,10 @@ class Component extends DCLogic {
       reflect: null,
       confirm: null,
       modulesOpen: false, installed: [], moduleRules: [], exportName: '', lastExport: null,
-      collapsedClusters: {}, linking: null, linkPicker: null, onboard: { active:false, step:0 },
+      collapsedClusters: {}, linking: null, linkPicker: null, connectSource: null, graphMenu: null, onboard: { active:false, step:0 },
       orbitLabels: true, orbitSpin: 0.5,
+      hover: null,                // §5: cross-view target lock — the concept id under the pointer in any view
+      boot: { active: !this.prefersReducedMotion() }, // §4: command-tablet boot sequence (skipped for reduced motion)
       speaking: false, listening: false, autoChapter: true, orbitDetail: null, nodeVideos: {}, videoDraft: '',
       userBooks: [], newBookOpen: false, newBookDraft: '', ytStatus: '',
       notes: [], notesOpen: false, noteDraft: '',
@@ -1361,17 +1443,25 @@ class Component extends DCLogic {
     this._n = 0;
     const seed = this.buildSeed();
     this._chapters = seed.chapters;
-    this.setState({ nodes:seed.nodes, edges:seed.edges, positions:seed.positions, chapterIdx:1, voice:'stoic', selected:null, focus:null, reflect:null, suggestNext:null, confusedNode:null, lastAdded:null, tracePath:[], installed:[], moduleRules:[], modulesOpen:false, lastExport:null, exportName:'', collapsedClusters:{}, linking:null, linkPicker:null, term:{ ...this.state.term, awaiting:null } });
+    this.setState({ nodes:seed.nodes, edges:seed.edges, positions:seed.positions, chapterIdx:1, voice:'stoic', selected:null, focus:null, reflect:null, suggestNext:null, confusedNode:null, lastAdded:null, tracePath:[], installed:[], moduleRules:[], modulesOpen:false, lastExport:null, exportName:'', collapsedClusters:{}, linking:null, linkPicker:null, connectSource:null, graphMenu:null, hover:null, term:{ ...this.state.term, awaiting:null } });
     this.pushEvent('runtime ▸ graph reset to seed · local save cleared');
   }
 
   componentDidMount(){
+    this._onResize = () => {
+      if (this.isMobile() && this.state.split) this.setState({ split:false, mode:'book' });
+      if (!this.isMobile() && this.state.mode==='terminal') this.setState({ mode:'book', termOpen:true });
+    };
+    window.addEventListener('resize', this._onResize); this._onResize();
     this._onKey = (e) => {
       if (e.key === '`' || e.key === '~') {
         if (this.state.reflect || this.state.confirm || this.state.modulesOpen || this.state.notesOpen) return;
         e.preventDefault(); this.toggleTerm(); return;
       }
       if (e.key === 'Escape') {
+        if (this.state.boot && this.state.boot.active) return this.finishBoot();
+        if (this.state.graphMenu) return this.closeGraphMenu();
+        if (this.state.connectSource) return this.setState({ connectSource:null });
         if (this.state.confirm) return this.setState({ confirm:null });
         if (this.state.notesOpen) return this.setState({ notesOpen:false });
         if (this.state.modulesOpen) return this.setState({ modulesOpen:false });
@@ -1388,9 +1478,11 @@ class Component extends DCLogic {
     this.measure();
     this._prev = this.snapshot();
     setTimeout(()=>this.autoRechapter(), 60);
-    try { if (!localStorage.getItem('ikos_onboarded')) setTimeout(()=>{ if(!this.state.onboard.active) this.startOnboard(); }, 400); } catch(e){}
+    try { this._wantTour = !localStorage.getItem('ikos_onboarded'); } catch(e){ this._wantTour = false; }
+    if (this.state.boot && this.state.boot.active) this._bootT = setTimeout(()=>this.finishBoot(), 2250); // §4: boot auto-completes, tour follows
+    else if (this._wantTour) setTimeout(()=>{ if(!this.state.onboard.active) this.startOnboard(); }, 400);
   }
-  componentWillUnmount(){ window.removeEventListener('keydown', this._onKey); if (this._ro) this._ro.disconnect(); clearTimeout(this._saveT); clearTimeout(this._flashT); try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} if(this._recog){ try{ this._recog.stop(); }catch(e){} } if(this._orb) this.disposeOrbital(); this.destroyYt(); }
+  componentWillUnmount(){ window.removeEventListener('keydown', this._onKey); window.removeEventListener('resize', this._onResize); if(this._mobileTabsEl) this._mobileTabsEl.removeEventListener('pointerdown', this.onMobileTabPointerDown); if(this._mobileSwipeUp) window.removeEventListener('pointerup', this._mobileSwipeUp); if (this._ro) this._ro.disconnect(); clearTimeout(this._saveT); clearTimeout(this._flashT); clearTimeout(this._bootT); try{ window.speechSynthesis&&window.speechSynthesis.cancel(); }catch(e){} if(this._recog){ try{ this._recog.stop(); }catch(e){} } if(this._orb) this.disposeOrbital(); this.destroyYt(); }
   snapshot(){ const s = this.state; return { termOpen:s.termOpen, reflect:s.reflect, termLines:s.term.lines, nodes:s.nodes, edges:s.edges, positions:s.positions, chapterIdx:s.chapterIdx, voice:s.voice, devMode:s.devMode, notes:s.notes }; }
   componentDidUpdate(prevProps){
     // NOTE: this runtime invokes componentDidUpdate(prevProps) only — no prevState — so we diff against our own snapshot.
@@ -1405,8 +1497,9 @@ class Component extends DCLogic {
   }
 
   // ---- three.js orbital renderer (Module 5) ----
+  prefersReducedMotion(){ return typeof window!=='undefined' && !!window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
   toggleOrbitLabels(){ this.setState(s=>({ orbitLabels: !(s.orbitLabels!==false) }), ()=>this.orbitSync()); }
-  setOrbitSpin(v){ this.setState({ orbitSpin:v }); if(this._orb) this._orb.spin = v; }
+  setOrbitSpin(v){ this.setState({ orbitSpin:v }); if(this._orb) this._orb.spin = this.prefersReducedMotion()?0:v; }
   orbitResetCamera(){ if(this._orb){ this._orb.rot = { x:0.35, y:0 }; this._orb.vel={x:0,y:0}; this._orb.camera.position.z=720; this._orb.render(); } }
   orbitPreset(name){ if(!this._orb) return; const o=this._orb; o.vel={x:0,y:0}; if(name==='front'){ o.rot={x:0.08,y:0}; o.camera.position.z=700; } else if(name==='top'){ o.rot={x:1.2,y:0}; o.camera.position.z=760; } else if(name==='tilt'){ o.rot={x:0.42,y:0.7}; o.camera.position.z=680; } else if(name==='wide'){ o.rot={x:0.3,y:0}; o.camera.position.z=1020; } o.render(); }
   growNode(id){ const n=this.state.nodes[id]; if(!n) return; this.applyMastery(id, 0.16, -0.06); this.pushEvent('🌱 grew “'+n.label+'” · confidence rising'); this.pulseNode(id); }
@@ -1475,6 +1568,61 @@ class Component extends DCLogic {
     }
     return new T3.MeshStandardMaterial({ color:col.clone().multiplyScalar(0.42), emissive:col, emissiveIntensity:mastered?0.5:0.28, roughness:0.6, metalness:0.15, flatShading:true });
   }
+  // ---- §1 ring detail: radial banding + a faint shadow the rings cast on the planet ----
+  // fine concentric alpha bands (Saturn-style); RingGeometry UVs are planar, so concentric circles map radially
+  makeRingBandTexture(T3){
+    if(this._ringTex) return this._ringTex;
+    try{
+      const S=256, cv=document.createElement('canvas'); cv.width=cv.height=S; const g=cv.getContext('2d'); const cx=S/2;
+      let h=0x9E3779B9; const rnd=()=>{ h^=h<<13; h^=h>>>17; h^=h<<5; return ((h>>>0)%1000)/1000; }; // deterministic — bands stable across rebuilds
+      for(let r=cx; r>6; ){
+        const w=2+rnd()*7, a=0.3+rnd()*0.7;
+        g.fillStyle='rgba(255,255,255,'+a.toFixed(3)+')';
+        g.beginPath(); g.arc(cx,cx,r,0,Math.PI*2); g.arc(cx,cx,Math.max(0,r-w),0,Math.PI*2,true); g.fill('evenodd');
+        r-=w;
+      }
+      const tx=new T3.CanvasTexture(cv); this._ringTex=tx; return tx;
+    }catch(e){ return null; }
+  }
+  // soft black band with feathered edges — wrapped around the planet's ring-plane equator as a fake cast shadow
+  makeRingShadowTexture(T3){
+    if(this._ringShadowTex) return this._ringShadowTex;
+    try{
+      const cv=document.createElement('canvas'); cv.width=4; cv.height=64; const g=cv.getContext('2d');
+      const img=g.createImageData(4,64);
+      for(let y=0;y<64;y++){ const a=Math.round(Math.sin((y/63)*Math.PI)*255); for(let x=0;x<4;x++){ const i=(y*4+x)*4; img.data[i]=0; img.data[i+1]=0; img.data[i+2]=0; img.data[i+3]=a; } }
+      g.putImageData(img,0,0);
+      const tx=new T3.CanvasTexture(cv); this._ringShadowTex=tx; return tx;
+    }catch(e){ return null; }
+  }
+  // banded ring material — TSL procedural banding on the WebGPU path, canvas texture on classic WebGL
+  makeRingMaterial(T3, col, opacity){
+    const TSL=this._TSL;
+    if (TSL && T3.MeshBasicNodeMaterial && TSL.uv && TSL.vec2 && TSL.color && TSL.float){
+      try{
+        const mat=new T3.MeshBasicNodeMaterial({ side:T3.DoubleSide, transparent:true, depthWrite:false });
+        const d=TSL.uv().sub(TSL.vec2(0.5,0.5)).length();      // radial distance in UV space (0 centre → 0.5 rim)
+        const band=d.mul(140.0).sin().mul(0.5).add(0.5);        // fine radial banding
+        mat.colorNode=TSL.color(col);
+        mat.opacityNode=band.mul(0.55).add(0.45).mul(TSL.float(opacity));
+        return mat;
+      }catch(e){ /* fall through to textured classic material */ }
+    }
+    const map=this.makeRingBandTexture(T3);
+    return new T3.MeshBasicMaterial({ map:map||null, color:col, side:T3.DoubleSide, transparent:true, opacity:(map?opacity:opacity*0.75), depthWrite:false });
+  }
+  // one ringed system: 2–3 banded rings + the shadow band they cast on the planet, pre-tilted
+  makeRingSystem(T3, col, rad, bands){
+    const ringGrp=new T3.Group(); const white=new T3.Color(0xffffff);
+    for(let b=0;b<bands;b++){ const ri=rad*(1.7+b*0.4), ro=ri+rad*0.3;
+      ringGrp.add(new T3.Mesh(new T3.RingGeometry(ri,ro,72), this.makeRingMaterial(T3, col.clone().lerp(white,0.28), 0.3-b*0.06))); }
+    const shTex=this.makeRingShadowTexture(T3);
+    if(shTex){ const sh=new T3.Mesh(new T3.SphereGeometry(rad*1.09, 24, 8, 0, Math.PI*2, Math.PI/2-0.3, 0.46),
+      new T3.MeshBasicMaterial({ map:shTex, transparent:true, opacity:0.32, depthWrite:false }));
+      sh.rotation.x=Math.PI/2; ringGrp.add(sh); } // sphere poles sit on y — tip them onto the ring normal (local z)
+    ringGrp.rotation.x=Math.PI*0.5*0.62; ringGrp.rotation.y=Math.random()*0.6-0.3;
+    return ringGrp;
+  }
   toggleOrbitEngine(){
     if (this._threeCbs) return; // a load is already in flight
     const next = (this.state.orbitRenderMode==='webgpu') ? 'webgl' : 'webgpu';
@@ -1515,7 +1663,7 @@ class Component extends DCLogic {
     const sunHalo2 = new T3.Sprite(new T3.SpriteMaterial({ map:sunTex, color:0xffd884, transparent:true, opacity:0.5, blending:T3.AdditiveBlending, depthWrite:false })); sunHalo2.scale.set(sunR*7.5, sunR*7.5, 1); sun.add(sunHalo2);
     scene.add(sun);
     const sunLight = new T3.PointLight(0xffd6a0, useGPU ? 1.5 : 0.65); if (useGPU) sunLight.decay = 0; sunLight.position.set(0,0,0); scene.add(sunLight);
-    this._orb = { scene, camera, renderer, dom:renderer.domElement, core, stars, sun, sunCore, sunHalo1, sunHalo2, rot:{x:0.35,y:0}, vel:{x:0,y:0}, spin:this.state.orbitSpin??0.5, W, H, sprites:[], nodeMeshes:[], comets:[], flying:false, nextComet:4, t0: performance.now(), ready: !initP,
+    this._orb = { scene, camera, renderer, dom:renderer.domElement, core, stars, sun, sunCore, sunHalo1, sunHalo2, rot:{x:0.35,y:0}, vel:{x:0,y:0}, spin:this.prefersReducedMotion()?0:(this.state.orbitSpin??0.5), W, H, sprites:[], nodeMeshes:[], comets:[], flying:false, nextComet:4, t0: performance.now(), ready: !initP,
       raycaster: new T3.Raycaster(), mouse: new T3.Vector2(),
       render: ()=>{ if(!this._orb || !this._orb.ready) return; core.rotation.x = this._orb.rot.x; core.rotation.y = this._orb.rot.y; stars.rotation.y = this._orb.rot.y*0.3; try{ renderer.render(scene, camera); }catch(e){} } };
     camera.position.set(0, 30, 720);
@@ -1527,21 +1675,38 @@ class Component extends DCLogic {
     dom.addEventListener('pointerdown', e=>{ drag=true; moved=false; px=e.clientX; py=e.clientY; downX=e.clientX; downY=e.clientY; dom.style.cursor='grabbing'; });
     window.addEventListener('pointermove', e=>{ if(!drag||!this._orb) return; if(Math.hypot(e.clientX-downX,e.clientY-downY)>4) moved=true; const dy=(e.clientX-px)*0.006, dx=(e.clientY-py)*0.006; this._orb.rot.y += dy; this._orb.rot.x += dx; this._orb.rot.x=Math.max(-1.3,Math.min(1.3,this._orb.rot.x)); this._orb.vel={x:dx,y:dy}; px=e.clientX; py=e.clientY; this._orb.render(); });
     window.addEventListener('pointerup', ()=>{ drag=false; if(this._orb) dom.style.cursor='grab'; });
-    dom.addEventListener('click', e=>{ if(moved||!this._orb) return; const r=dom.getBoundingClientRect(); this._orb.mouse.x=((e.clientX-r.left)/r.width)*2-1; this._orb.mouse.y=-((e.clientY-r.top)/r.height)*2+1; this._orb.raycaster.setFromCamera(this._orb.mouse, this._orb.camera); const hits=this._orb.raycaster.intersectObjects(this._orb.nodeMeshes, false); if(hits.length){ const id=hits[0].object.userData.id; if(id) this.flyToOrbit(hits[0].object, id); } });
+    dom.addEventListener('click', e=>{ if(moved||!this._orb) return; const r=dom.getBoundingClientRect(); this._orb.mouse.x=((e.clientX-r.left)/r.width)*2-1; this._orb.mouse.y=-((e.clientY-r.top)/r.height)*2+1; this._orb.raycaster.setFromCamera(this._orb.mouse, this._orb.camera); const hits=this._orb.raycaster.intersectObjects(this._orb.nodeMeshes, false); if(hits.length){ const id=hits[0].object.userData.id; if(id) this.flyToOrbit(hits[0].object, id); return; }
+      // §1: moons are navigation — clicking a moon follows its edge to the connected concept
+      const mhits=this._orb.raycaster.intersectObjects(this._orb.moonMeshes||[], false);
+      if(mhits.length){ const md=mhits[0].object.userData; const tgt=(this._orb.nodeMeshes||[]).find(mm=>mm.userData&&mm.userData.id===md.target); const from=this.state.nodes[md.moonOf], to=this.state.nodes[md.target];
+        if(tgt && to){ this.pushEvent('☾ moon ▸ “'+(from?from.label:md.moonOf)+'” '+(this.relLabel[md.rel]||md.rel)+' “'+to.label+'” · following the edge'); this.flyToOrbit(tgt, md.target); } } });
+    // §5: cross-view target lock — hovering a planet highlights the same concept in every view
+    dom.addEventListener('pointermove', e=>{ if(drag||!this._orb||this._orb.flying) return; const o2=this._orb; const r=dom.getBoundingClientRect(); o2.mouse.x=((e.clientX-r.left)/r.width)*2-1; o2.mouse.y=-((e.clientY-r.top)/r.height)*2+1; o2.raycaster.setFromCamera(o2.mouse, o2.camera);
+      const hits=o2.raycaster.intersectObjects(o2.nodeMeshes, false); const id=hits.length?hits[0].object.userData.id:(o2.raycaster.intersectObjects(o2.moonMeshes||[], false)[0]||{object:{userData:{}}}).object.userData.target||null;
+      dom.style.cursor=id?'pointer':'grab'; if((id||null)!==(this._hoverId||null)) this.setHover(id||null); });
+    dom.addEventListener('pointerleave', ()=>{ if(this._hoverId) this.setHover(null); });
     dom.addEventListener('wheel', e=>{ e.preventDefault(); if(!this._orb) return; const c=this._orb.camera; c.position.z = Math.max(220, Math.min(1100, c.position.z + e.deltaY*0.5)); this._orb.render(); }, {passive:false});
     this.buildOrbital();
-    const loop = ()=>{ if(!this._orb) return; const o=this._orb; const t=(performance.now()-o.t0)/1000; if(!drag && !o.flying){ const v=o.vel||{x:0,y:0}; o.rot.y += v.y + 0.0016*(o.spin||0); o.rot.x += v.x; o.rot.x=Math.max(-1.3,Math.min(1.3,o.rot.x)); v.x*=0.92; v.y*=0.92; if(Math.abs(v.x)<0.00002) v.x=0; if(Math.abs(v.y)<0.00002) v.y=0; }
+    const loop = ()=>{ if(!this._orb) return; const o=this._orb; const t=(performance.now()-o.t0)/1000; if(!drag && !o.flying){ const v=o.vel||{x:0,y:0}; const autoSpin=this.prefersReducedMotion()?0:(o.spin||0); o.rot.y += v.y + 0.0016*autoSpin; o.rot.x += v.x; o.rot.x=Math.max(-1.3,Math.min(1.3,o.rot.x)); v.x*=0.92; v.y*=0.92; if(Math.abs(v.x)<0.00002) v.x=0; if(Math.abs(v.y)<0.00002) v.y=0; }
+      const zoomedOut=o.camera.position.z>880; const hov=this._hoverId||null;
       o.nodeMeshes.forEach(m=>{ const u=m.userData; const grow=Math.max(0,Math.min(1,(t-u.birth)/0.6)); const ease=1-Math.pow(1-grow,3); const pulse=u.mastered?(1+Math.sin(t*2+u.phase)*0.08):1;
         if(u.holder){ u.holder.position.y=u.base.y+Math.sin(t*0.8+u.phase)*3.5; u.holder.scale.setScalar(ease||0.0001); }
         const flash=(u.flashUntil && t<u.flashUntil) ? (u.flashUntil-t)/0.9 : 0; // cross-view command pulse burst
-        m.scale.setScalar(pulse*(1+flash*0.6)); m.rotation.y += 0.012*(u.spin||0.4);
-        if(u.glow) u.glow.material.opacity=Math.min(1,(u.mastered?0.34:0.24)*(0.7+0.3*Math.sin(t*1.5+u.phase))+flash*0.6);
+        const hot=(hov && u.id===hov)?1:0; // §5: cross-view target lock — hovered anywhere, highlighted here
+        const pinBoost=u.pinned?(0.14+(zoomedOut?0.06+0.05*Math.sin(t*2.4+u.phase):0)):0; // §9: pinned stay prominent, pulse at distance
+        m.scale.setScalar(pulse*(1+flash*0.6+hot*0.16+pinBoost)); m.rotation.y += 0.012*(u.spin||0.4);
+        let gop=(u.mastered?0.34:0.24)*(0.7+0.3*Math.sin(t*1.5+u.phase))+flash*0.6+hot*0.3+(u.pinned?0.14:0);
+        if(zoomedOut && o.hasPinned && !u.pinned) gop*=0.5; // §9: at strategic distance, unpinned bodies dim
+        if(u.glow) u.glow.material.opacity=Math.min(1,gop);
         if(u.mastered && m.material) m.material.emissiveIntensity=0.5+0.25*Math.sin(t*2+u.phase);
         if(u.ringGrp) u.ringGrp.rotation.z += 0.0018*(u.spin||0.4);
-        if(u.moons) for(let k=0;k<u.moons.length;k++){ const mo=u.moons[k], d=mo.userData; const a=t*d.sp+d.ph; mo.position.set(Math.cos(a)*d.orb, Math.sin(a)*d.orb*Math.sin(d.incl), Math.sin(a)*d.orb*Math.cos(d.incl)); }
+        // §3 LOD: at strategic distance cull the small stuff — moons vanish, labels survive only on pinned/mastered
+        if(u.moons && u.moons.length){ const mv=!zoomedOut; if(u.moonsVis!==mv){ u.moonsVis=mv; for(let k=0;k<u.moons.length;k++) u.moons[k].visible=mv; } }
+        if(u.label){ const lv=!zoomedOut || u.pinned || u.mastered; if(u.labelVis!==lv){ u.labelVis=lv; u.label.visible=lv; } }
+        if(u.moons && !zoomedOut) for(let k=0;k<u.moons.length;k++){ const mo=u.moons[k], d=mo.userData; const a=t*d.sp+d.ph; mo.position.set(Math.cos(a)*d.orb, Math.sin(a)*d.orb*Math.sin(d.incl), Math.sin(a)*d.orb*Math.cos(d.incl)); }
       });
       if(o.sun){ o.sunCore.rotation.y += 0.0009; o.sunCore.scale.setScalar(1+Math.sin(t*0.7)*0.05); if(o.sunHalo1) o.sunHalo1.material.opacity=0.7+0.18*Math.sin(t*0.9); if(o.sunHalo2) o.sunHalo2.material.opacity=0.42+0.12*Math.sin(t*0.6+1.0); }
-      this.updateComets(t);
+      this.updateComets(t); this.updateShocks(t);
       o.render(); o.raf = requestAnimationFrame(loop); };
     if (initP){
       initP.then(()=>{
@@ -1719,9 +1884,15 @@ class Component extends DCLogic {
     const o = this._orb; if(!o) return; const THREEg = this._T || window.THREE; if(!THREEg) return;
     while(o.core.children.length) o.core.remove(o.core.children[0]);
     if(o.comets){ o.comets.forEach(c=>{ try{ o.scene.remove(c.line); c.geo.dispose(); c.line.material.dispose(); }catch(e){} }); o.comets=[]; }
-    o.sprites=[]; o.nodeMeshes=[];
+    if(o.shocks){ o.shocks.forEach(sh=>{ try{ o.scene.remove(sh.spr); sh.spr.material.dispose(); }catch(e){} }); o.shocks=[]; }
+    o.sprites=[]; o.nodeMeshes=[]; o.moonMeshes=[];
     const tm = this.typeMeta; const hidden = this._hiddenSet || new Set();
     const ids = Object.keys(this.state.nodes).filter(id=>!hidden.has(id));
+    // §1 perf guard: decoration budgets shrink as the graph grows, so the scene stays smooth
+    const N = ids.length;
+    const moonCap = N>250 ? 0 : N>120 ? 2 : 4;               // fewer, then no, moons on big graphs
+    const ringOk = (m,d)=> m || (d>=3 && N<=180);            // past ~180 nodes only mastery earns rings
+    const labelOk = (m,d,pin)=> N<=150 || m || pin || d>=3;  // big graphs: label only the landmarks
     const shells = { principle:70, concept:150, emotion:150, skill:230, reaction:230, reflection:300 };
     const byShell = {};
     ids.forEach(id=>{ const t=this.state.nodes[id].type; const r=shells[t]||190; (byShell[r]=byShell[r]||[]).push(id); });
@@ -1731,6 +1902,7 @@ class Component extends DCLogic {
     Object.keys(byShell).forEach(r=>{ const R=parseFloat(r); const geo=new THREEg.RingGeometry(R-0.6,R+0.6,96); const mat=new THREEg.MeshBasicMaterial({color:0x2a3446, side:THREEg.DoubleSide, transparent:true, opacity:0.5}); const ring=new THREEg.Mesh(geo,mat); ring.rotation.x=Math.PI/2 - (R/300)*0.6; o.core.add(ring); });
     // edges
     const showLabels = this.state.orbitLabels!==false;
+    o.hasPinned = ids.some(id=>!!this.state.nodes[id].pinned);
     this.state.edges.forEach(e=>{ const a=pos[e.source], b=pos[e.target]; if(!a||!b) return; const g=new THREEg.BufferGeometry().setFromPoints([a,b]); const m=new THREEg.LineBasicMaterial({color:0x4a5468, transparent:true, opacity:0.4}); o.core.add(new THREEg.Line(g,m)); });
     // connection degree per node — drives which planets grow rings (hubs / gas giants) and how many moons they spawn
     const degree={}; this.state.edges.forEach(e=>{ if(pos[e.source]&&pos[e.target]){ degree[e.source]=(degree[e.source]||0)+1; degree[e.target]=(degree[e.target]||0)+1; } });
@@ -1743,18 +1915,23 @@ class Component extends DCLogic {
       const mesh=new THREEg.Mesh(geo,mat); holder.add(mesh); o.nodeMeshes.push(mesh);
       const wire=new THREEg.LineSegments(new THREEg.WireframeGeometry(geo), new THREEg.LineBasicMaterial({color:col, transparent:true, opacity:mastered?0.68:0.4})); mesh.add(wire);
       const glowM=new THREEg.SpriteMaterial({color:col, transparent:true, opacity:0.24}); const glow=new THREEg.Sprite(glowM); glow.scale.set(rad*3.6,rad*3.6,1); holder.add(glow);
-      // rings — mastered planets and hubs (3+ links) become ringed gas giants
-      let ringGrp=null; const ringed = mastered || deg>=3;
-      if(ringed){ ringGrp=new THREEg.Group(); const bands=mastered?3:2; const white=new THREEg.Color(0xffffff);
-        for(let b=0;b<bands;b++){ const ri=rad*(1.7+b*0.4), ro=ri+rad*0.3; const rgeo=new THREEg.RingGeometry(ri,ro,72); const rmat=new THREEg.MeshBasicMaterial({color:col.clone().lerp(white,0.28), side:THREEg.DoubleSide, transparent:true, opacity:0.22-b*0.05}); ringGrp.add(new THREEg.Mesh(rgeo,rmat)); }
-        ringGrp.rotation.x=Math.PI*0.5*0.62; ringGrp.rotation.y=Math.random()*0.6-0.3; holder.add(ringGrp);
-      }
-      // moons — minor "seed" bodies spawned from the node, one per connection (capped), on tilted orbits
-      const moons=[]; const nMoons=Math.min(4, Math.max(0, deg-1)); const mcol=col.clone().lerp(new THREEg.Color(0xffffff),0.5);
-      for(let mI=0;mI<nMoons;mI++){ const msz=rad*(0.15+Math.random()*0.12); const mo=new THREEg.Mesh(new THREEg.SphereGeometry(msz,8,8), new THREEg.MeshBasicMaterial({color:mcol, transparent:true, opacity:0.92})); mo.userData={ orb:rad*(2.1+mI*0.55+Math.random()*0.2), ph:Math.random()*Math.PI*2, sp:0.5+Math.random()*0.9, incl:Math.random()*0.8-0.4 }; moons.push(mo); holder.add(mo); }
-      mesh.userData = { id, holder, base:p.clone(), phase:Math.random()*Math.PI*2, mastered, rad, glow, wire, ringGrp, moons, spin:0.25+Math.random()*0.6, birth:(bi++)*0.045 };
+      // rings — mastered planets and hubs (3+ links) become ringed gas giants (banded + self-shadowing, §1)
+      let ringGrp=null; const ringed = ringOk(mastered, deg);
+      // §7: ring count reads coherence tier — explain-back earns the full triple-ring crown
+      if(ringed){ ringGrp=this.makeRingSystem(THREEg, col, rad, mastered ? ((n.state&&n.state.explained)?3:2) : 2); holder.add(ringGrp); }
+      // moons — one per connection (capped at 4). Each moon *is* an edge: coloured by relationship
+      // type, sized by edge weight, clickable → flies to the concept on the other end (§1: navigation, not decoration)
+      const moons=[]; const myEdges=this.state.edges.filter(e=>(e.source===id&&pos[e.target])||(e.target===id&&pos[e.source])).slice(0,moonCap);
+      myEdges.forEach((e,mI)=>{ const other=e.source===id?e.target:e.source; const mcol=new THREEg.Color(this.relColor[e.relationship]||'#9aa4b8').lerp(new THREEg.Color(0xffffff),0.25);
+        const msz=rad*(0.13+(e.weight||0.5)*0.16);
+        const mo=new THREEg.Mesh(new THREEg.SphereGeometry(msz,8,8), new THREEg.MeshBasicMaterial({color:mcol, transparent:true, opacity:0.92}));
+        mo.userData={ orb:rad*(2.1+mI*0.55+Math.random()*0.2), ph:Math.random()*Math.PI*2, sp:0.5+Math.random()*0.9, incl:Math.random()*0.8-0.4, moonOf:id, rel:e.relationship, target:other };
+        moons.push(mo); holder.add(mo); o.moonMeshes.push(mo); });
+      const isPinned=!!n.pinned;
+      mesh.userData = { id, holder, base:p.clone(), phase:Math.random()*Math.PI*2, mastered, rad, glow, wire, ringGrp, moons, pinned:isPinned, spin:0.25+Math.random()*0.6, birth:(bi++)*0.045 };
       mesh.rotation.z = Math.random()*0.6-0.3;
-      if(showLabels){ const spr=this.makeLabelSprite(n.label, tm[n.type].c); if(spr){ spr.position.set(0, rad+12, 0); holder.add(spr); } }
+      // §9: a pinned planet keeps its label even when labels are toggled off · §1: big graphs label only landmarks
+      if((showLabels&&labelOk(mastered,deg,isPinned))||isPinned){ const spr=this.makeLabelSprite(n.label, tm[n.type].c); if(spr){ spr.position.set(0, rad+12, 0); holder.add(spr); mesh.userData.label=spr; } }
     });
     o.t0 = performance.now();
     o.render();
@@ -1789,6 +1966,10 @@ class Component extends DCLogic {
   }
   updateComets(t){
     const o=this._orb; if(!o||!o.comets) return;
+    if(this.prefersReducedMotion()){
+      while(o.comets.length){ const c=o.comets.pop(); try{ o.scene.remove(c.line); c.geo.dispose(); c.line.material.dispose(); }catch(e){} }
+      return;
+    }
     for(let i=o.comets.length-1;i>=0;i--){ const c=o.comets[i]; const age=(t-c.born)/c.life;
       if(age>=1){ try{ o.scene.remove(c.line); c.geo.dispose(); c.line.material.dispose(); }catch(e){} o.comets.splice(i,1); continue; }
       const head=c.start.clone().addScaledVector(c.dir,age); const tail=c.start.clone().addScaledVector(c.dir,Math.max(0,age-0.05));
@@ -1796,6 +1977,48 @@ class Component extends DCLogic {
       c.line.material.opacity=0.85*Math.sin(age*Math.PI);
     }
     if(t>(o.nextComet||4)){ o.nextComet=t+6+Math.random()*7; if(o.comets.length<3) this.spawnComet(); }
+  }
+  // ---- state-driven cosmic events (§1) — shockwaves anchored to a planet, wired to graph verbs ----
+  makeShockTexture(T3){
+    if(this._shockTex) return this._shockTex;
+    try{ const cv=document.createElement('canvas'); cv.width=cv.height=128; const g=cv.getContext('2d');
+      g.strokeStyle='rgba(255,255,255,0.95)'; g.lineWidth=7; g.beginPath(); g.arc(64,64,50,0,Math.PI*2); g.stroke();
+      const gr=g.createRadialGradient(64,64,26,64,64,64); gr.addColorStop(0,'rgba(255,255,255,0)'); gr.addColorStop(0.75,'rgba(255,255,255,0.28)'); gr.addColorStop(1,'rgba(255,255,255,0)');
+      g.fillStyle=gr; g.fillRect(0,0,128,128);
+      this._shockTex=new T3.CanvasTexture(cv); return this._shockTex; }catch(e){ return null; }
+  }
+  // mode: 'burst' — a ring blooming outward (mastery, birth) · 'implode' — a ring collapsing inward (fold)
+  spawnShock(id, color, mode){
+    const o=this._orb, T3=this._T||window.THREE; if(!o||!T3) return;
+    const m=(o.nodeMeshes||[]).find(mm=>mm.userData&&mm.userData.id===id); if(!m||!m.userData.holder) return;
+    const tex=this.makeShockTexture(T3); if(!tex) return;
+    const p=new T3.Vector3(); m.userData.holder.getWorldPosition(p);
+    const spr=new T3.Sprite(new T3.SpriteMaterial({ map:tex, color:color||0xffe6b0, transparent:true, opacity:0, blending:T3.AdditiveBlending, depthWrite:false }));
+    spr.position.copy(p); o.scene.add(spr);
+    const rad=m.userData.rad||9;
+    o.shocks=o.shocks||[];
+    o.shocks.push({ spr, born:(performance.now()-o.t0)/1000, life: mode==='implode'?0.45:0.85,
+      from: mode==='implode'?rad*6.5:rad*1.4, to: mode==='implode'?rad*0.3:rad*7.5 });
+  }
+  updateShocks(t){
+    const o=this._orb; if(!o||!o.shocks||!o.shocks.length) return;
+    for(let i=o.shocks.length-1;i>=0;i--){ const sh=o.shocks[i]; const k=(t-sh.born)/sh.life;
+      if(k>=1){ try{ o.scene.remove(sh.spr); sh.spr.material.dispose(); }catch(e){} o.shocks.splice(i,1); continue; }
+      const kk=Math.max(0,k); const e=1-Math.pow(1-kk,2);
+      const sc=sh.from+(sh.to-sh.from)*e; sh.spr.scale.set(sc,sc,1);
+      sh.spr.material.opacity=0.85*Math.sin(kk*Math.PI);
+    }
+  }
+  // on_mastery, live: the planet earns its rings the moment it's mastered — gold shockwave + comets, no rebuild
+  orbitMastered(id){
+    const o=this._orb, T3=this._T||window.THREE; if(!o||!T3) return;
+    this.spawnShock(id, 0xd4b15f, 'burst'); this.spawnComet(0xd4b15f);
+    const m=(o.nodeMeshes||[]).find(mm=>mm.userData&&mm.userData.id===id); if(!m||m.userData.mastered) return;
+    const u=m.userData; u.mastered=true;
+    if(u.wire) u.wire.material.opacity=0.68;
+    if(!u.ringGrp){ const n=this.state.nodes[id]; if(!n) return;
+      u.ringGrp=this.makeRingSystem(T3, new T3.Color(this.typeMeta[n.type].c), u.rad, (n.state&&n.state.explained)?3:2); u.holder.add(u.ringGrp); // §7: coherence tier sets the ring count
+    }
   }
   makeLabelSprite(text, hex){ try{ const T3=this._T||window.THREE; const cv=document.createElement('canvas'); const ctx=cv.getContext('2d'); const fs=42; ctx.font='500 '+fs+'px Spectral, serif'; const w=ctx.measureText(text).width; cv.width=w+40; cv.height=fs+28; ctx.font='500 '+fs+'px Spectral, serif'; ctx.fillStyle='rgba(12,15,20,0.72)'; ctx.fillRect(0,0,cv.width,cv.height); ctx.fillStyle=hex; ctx.textBaseline='middle'; ctx.fillText(text,20,cv.height/2); const tex=new T3.CanvasTexture(cv); tex.needsUpdate=true; if (T3.SRGBColorSpace) tex.colorSpace = T3.SRGBColorSpace; const mat=new T3.SpriteMaterial({map:tex, transparent:true}); const spr=new T3.Sprite(mat); const sc=cv.width/cv.height; spr.scale.set(38*sc,38,1); return spr; }catch(e){ return null; } }
   orbitSync(){ if(this._orb) this.buildOrbital(); }
@@ -1820,26 +2043,33 @@ class Component extends DCLogic {
   pulseNode(id){ if(!id) return; this.setState({ pulse: { id, key: Date.now() } }); if (this._orb) this.orbitPulse(id); }
   orbitPulse(id){ const o=this._orb; if(!o||!o.nodeMeshes) return; const m=o.nodeMeshes.find(mm=>mm.userData&&mm.userData.id===id); if(m){ m.userData.flashUntil=(performance.now()-o.t0)/1000+0.9; this.spawnComet(0xffe6b0); } }
 
+  // ---- cross-view target lock (§5): hovering a concept in any view softly highlights it everywhere ----
+  setHover(id){ id=id||null; this._hoverId=id; if((this.state.hover||null)!==id) this.setState({ hover:id }); }
+
+
   // ---- graph auto-layout (§3b): tidy the messy free graph into a tree or a radial map ----
   applyGraphLayout(mode){
     if (mode==='free'){ this.setState({ graphLayout:'free' }); return; }
     const positions = this.computeGraphLayout(mode);
     if (!positions){ this.setState({ graphLayout:mode }); return; }
+    // §3b/§9: a tidy pass respects user-placed anchors — pinned nodes keep their positions
+    Object.keys(positions).forEach(id=>{ const n=this.state.nodes[id]; if (n && n.pinned && this.state.positions[id]) positions[id]=this.state.positions[id]; });
     const stamp = Date.now(); this._layoutAnim = stamp;
     this.setState({ graphLayout:mode, positions, layoutAnim:stamp });
     this.pushEvent(mode==='tree' ? '⌆ graph tidied · tree layout (trunk · branches · roots)' : '❉ graph tidied · radial map (roots at centre)');
     if (this._orb) this.orbitSync();
     setTimeout(()=>{ if (this._layoutAnim===stamp) this.setState({ layoutAnim:0 }); }, 560);
   }
+  chipW(n){ return Math.max(70, Math.round(40 + (n.label||'').length*6.6)); }
   computeGraphLayout(mode){
     const s=this.state; const hidden=this._hiddenSet||new Set();
     const ids=Object.keys(s.nodes).filter(id=>!hidden.has(id));
     if (!ids.length) return null;
     const idSet=new Set(ids);
     const skip=new Set(['contradicts','loops_back_to']); // non-hierarchical edges don't shape the trunk
-    const children={}, indeg={};
-    ids.forEach(id=>{ children[id]=[]; indeg[id]=0; });
-    s.edges.forEach(e=>{ if(skip.has(e.relationship)) return; if(!idSet.has(e.source)||!idSet.has(e.target)||e.source===e.target) return; children[e.source].push(e.target); indeg[e.target]++; });
+    const children={}, parents={}, indeg={};
+    ids.forEach(id=>{ children[id]=[]; parents[id]=[]; indeg[id]=0; });
+    s.edges.forEach(e=>{ if(skip.has(e.relationship)) return; if(!idSet.has(e.source)||!idSet.has(e.target)||e.source===e.target) return; children[e.source].push(e.target); parents[e.target].push(e.source); indeg[e.target]++; });
     // roots = no incoming hierarchy edge; if the graph is one big cycle, seed with the least-depended-on node
     let roots=ids.filter(id=>indeg[id]===0);
     if (!roots.length) roots=[ids.slice().sort((a,b)=>indeg[a]-indeg[b])[0]];
@@ -1853,32 +2083,59 @@ class Component extends DCLogic {
     const layerKeys=Object.keys(layers).map(Number).sort((a,b)=>a-b);
     const W=this.worldW, H=this.worldH, pos={};
     const orderIndex={};
+    layerKeys.forEach(d=>layers[d].sort((a,b)=>((s.positions[a]?.x||0)-(s.positions[b]?.x||0)) || a.localeCompare(b)));
+    const refreshOrder=()=>layerKeys.forEach(d=>layers[d].forEach((id,i)=>{ orderIndex[id]=i; }));
+    const reorder=(d, links)=>{
+      const arr=layers[d], prior=new Map(arr.map((id,i)=>[id,i]));
+      const bary=(id)=>{ const values=(links[id]||[]).map(other=>orderIndex[other]).filter(v=>v!=null); return values.length?values.reduce((sum,v)=>sum+v,0)/values.length:null; };
+      arr.sort((a,b)=>{ const av=bary(a), bv=bary(b); if(av==null&&bv==null) return prior.get(a)-prior.get(b); if(av==null) return 1; if(bv==null) return -1; return av-bv || prior.get(a)-prior.get(b); });
+    };
+    refreshOrder();
+    for(let pass=0; pass<3; pass++){
+      for(let li=1; li<layerKeys.length; li++){ reorder(layerKeys[li],parents); refreshOrder(); }
+      for(let li=layerKeys.length-2; li>=0; li--){ reorder(layerKeys[li],children); refreshOrder(); }
+    }
     if (mode==='tree'){
       const marginY=70, layerGap = layerKeys.length>1 ? (H-marginY*2)/(layerKeys.length-1) : 0;
       layerKeys.forEach((d,li)=>{
-        let arr=layers[d];
-        if (li>0){ const bary=(id)=>{ const ps=[]; ids.forEach(pid=>{ if((children[pid]||[]).includes(id) && orderIndex[pid]!=null) ps.push(orderIndex[pid]); }); return ps.length? ps.reduce((x,y)=>x+y,0)/ps.length : 1e9; }; arr=arr.slice().sort((a,b)=>bary(a)-bary(b)); layers[d]=arr; }
-        const n=arr.length, marginX=90, gap = n>1 ? (W-marginX*2)/(n-1) : 0;
-        arr.forEach((id,i)=>{ pos[id]={ x:Math.round(n>1? marginX+gap*i : W/2), y:Math.round(marginY+layerGap*li) }; orderIndex[id]=i; });
+        const arr=layers[d], gap=28, widths=arr.map(id=>this.chipW(s.nodes[id]));
+        const rowW=widths.reduce((sum,w)=>sum+w,0)+gap*Math.max(0,widths.length-1);
+        let cursor=W/2-rowW/2;
+        arr.forEach((id,i)=>{ cursor+=widths[i]/2; pos[id]={ x:Math.round(cursor), y:Math.round(marginY+layerGap*li) }; cursor+=widths[i]/2+gap; });
       });
     } else { // radial
       const cx=W/2, cy=H/2, maxR=Math.min(W,H)*0.42;
       layerKeys.forEach((d,li)=>{ const arr=layers[d]; const n=arr.length;
-        const r = layerKeys.length>1 ? (li===0 ? (n>1?maxR*0.14:0) : (li/(layerKeys.length-1))*maxR) : 0;
-        arr.forEach((id,i)=>{ if(r===0){ pos[id]={x:Math.round(cx),y:Math.round(cy)}; } else { const a=(i/n)*Math.PI*2 - Math.PI/2; pos[id]={x:Math.round(cx+Math.cos(a)*r), y:Math.round(cy+Math.sin(a)*r)}; } });
+        if(n===1&&li===0){ pos[arr[0]]={x:Math.round(cx),y:Math.round(cy)}; return; }
+        const gap=28, widths=arr.map(id=>this.chipW(s.nodes[id])), demand=widths.reduce((sum,w)=>sum+w+gap,0);
+        const baseR=layerKeys.length>1 ? (li===0?maxR*0.14:(li/(layerKeys.length-1))*maxR) : maxR*0.14;
+        const r=Math.max(baseR,demand/(Math.PI*2)); let cursor=0;
+        arr.forEach((id,i)=>{ const span=widths[i]+gap, a=(cursor+span/2)/demand*Math.PI*2-Math.PI/2; pos[id]={x:Math.round(cx+Math.cos(a)*r),y:Math.round(cy+Math.sin(a)*r)}; cursor+=span; });
       });
     }
     return { ...s.positions, ...pos }; // keep folded/hidden nodes where they were
   }
 
   // ---- mode / chrome ----
+  isMobile(){ return typeof window!=='undefined' && !!window.matchMedia && window.matchMedia('(max-width: 720px)').matches; }
   setMode(m){
+    if (m==='split' && this.isMobile()) m='book';
     if (m === 'split') { this.setState({ split:true, mode:'book' }); setTimeout(this.measure, 60); }
-    else { this.setState({ mode:m, split:false }); if (m==='graph') setTimeout(this.measure, 60); }
+    else { this.setState(s => ({ mode:m, split:false, termOpen:this.isMobile()?false:s.termOpen })); if (m==='graph') setTimeout(this.measure, 60); }
   }
-  toggleSplit(){ this.setState(s => ({ split: !s.split })); setTimeout(this.measure, 60); }
+  toggleSplit(){ if(this.isMobile()) return this.setMobileView('book'); this.setState(s => ({ split: !s.split })); setTimeout(this.measure, 60); }
   revealFor(pref){ if (this.state.split) { setTimeout(this.measure, 40); return; } this.setMode(pref); }
-  toggleTerm(){ this.setState(s => ({ termOpen: !s.termOpen })); }
+  toggleTerm(){ this.setState(s => { const open=!s.termOpen; if(this.isMobile()) return open ? { termOpen:true, mode:'terminal', split:false } : { termOpen:false, mode:s.mode==='terminal'?'book':s.mode, split:false }; return { termOpen:open }; }); }
+  setMobileView(view){ if(view==='terminal'){ this.setState({ mode:'terminal', split:false, termOpen:true }); return; } this.setMode(view); }
+  cycleMobileView(delta){ const views=['book','graph','terminal','orbit']; const current=views.includes(this.state.mode)?this.state.mode:'book'; this.setMobileView(views[(views.indexOf(current)+delta+views.length)%views.length]); }
+  setMobileTabsRef = (el) => { if(el===this._mobileTabsEl) return; if(this._mobileTabsEl) this._mobileTabsEl.removeEventListener('pointerdown', this.onMobileTabPointerDown); this._mobileTabsEl=el; if(el) el.addEventListener('pointerdown', this.onMobileTabPointerDown); };
+  onMobileTabPointerDown = (e) => {
+    if(!this.isMobile() || e.button>0) return;
+    const start={ x:e.clientX, y:e.clientY };
+    const up=(ev)=>{ window.removeEventListener('pointerup', up); this._mobileSwipeUp=null; const dx=ev.clientX-start.x, dy=ev.clientY-start.y; if(Math.abs(dx)>48 && Math.abs(dx)>Math.abs(dy)){ this._mobileSwiped=true; setTimeout(()=>{ this._mobileSwiped=false; },240); this.cycleMobileView(dx<0?1:-1); } };
+    this._mobileSwipeUp=up; window.addEventListener('pointerup', up);
+  };
+  onMobileTabClick(id, e){ if(this._mobileSwiped){ e.preventDefault(); e.stopPropagation(); return; } this.setMobileView(id); }
   setVoice(v){ this.setState({ voice:v }); this.pushEvent('book re-rendered · voice = ' + v); }
 
   // ---- narration & dictation (Web Speech API — built into the browser, no external key) ----
@@ -1953,9 +2210,25 @@ class Component extends DCLogic {
     const justMastered = mastered && !st.mastered;
     this.setState(s => ({ nodes: { ...s.nodes, [id]: { ...s.nodes[id], state: { ...s.nodes[id].state, visited:true, confidence, confusionScore, mastered } } } }));
     if (opts.silent) return;
-    if (justMastered){ this.pulseNode(id); this.fireRules('on_mastery', id); }
+    if (justMastered){ this.pulseNode(id); if(this._orb) this.orbitMastered(id); this.fireRules('on_mastery', id); } // §1: mastery = gold shockwave + comet, rings appear live
     else if (confusionScore >= 0.6) this.fireRules('on_confusion', id);
   }
+  // ---- §7: coherence (readiness) 0–100 — rises only through genuine explain-back, decays with unreviewed drift ----
+  nodeCoherence(n){
+    if (!n || !n.state) return 0;
+    const st = n.state; const conf = st.confidence||0;
+    // without explain-back, confidence alone caps at 0.45 — you can read your way to familiarity, not to readiness
+    let c = st.explained ? Math.min(1, conf + 0.15) : Math.min(conf, 0.45);
+    if (st.explained && st.explainedAt){ const days = (Date.now()-st.explainedAt)/86400000; if (days > 7) c *= Math.max(0.7, 1 - 0.02*(days-7)); } // drift: unreviewed knowledge slowly loosens
+    return c * (1 - 0.35*(st.confusionScore||0));
+  }
+  chapterCoherence(ch){
+    if (!ch || !ch.path || !ch.path.length) return 0;
+    const ns = ch.path.map(id=>this.state.nodes[id]).filter(Boolean);
+    return ns.length ? Math.round(100*ns.reduce((a,n)=>a+this.nodeCoherence(n),0)/ns.length) : 0;
+  }
+  bookCoherence(chapters){ const cs=(chapters||this._chapters); return cs.length ? Math.round(cs.reduce((a,c)=>a+this.chapterCoherence(c),0)/cs.length) : 0; }
+
   downstreamOf(id){ const e = this.state.edges.find(e => e.source===id && ['leads_to','deepens','requires','supports'].includes(e.relationship)); return e ? this.state.nodes[e.target] : null; }
   fireRules(trigger, id){
     const node = this.state.nodes[id]; if (!node) return;
@@ -1993,8 +2266,10 @@ class Component extends DCLogic {
     const words = ans.split(/\s+/).filter(Boolean).length;
     const substantive = words >= 8 || /because|means|when|so that|in order|pause|space|judg|choos|control|reflect|virtue/i.test(ans);
     if (substantive){
+      // §7: genuine explain-back is the only thing that raises coherence — stamp it (count + recency for drift decay)
+      this.setState(s=>({ nodes:{ ...s.nodes, [id]:{ ...s.nodes[id], state:{ ...s.nodes[id].state, explained:(s.nodes[id].state.explained||0)+1, explainedAt:Date.now() } } } }));
       this.applyMastery(id, 0.32, -0.28);
-      this.pushEvent('evaluateUnderstanding ▸ understood “'+n.label+'” · confidence ↑ · deepen()');
+      this.pushEvent('evaluateUnderstanding ▸ understood “'+n.label+'” · confidence ↑ · coherence ↑ · deepen()');
       if (this.state.termOpen) this.termOut([{t:'  ✓ evaluateUnderstanding → understood · ',role:'ok'},{t:n.label,role:'node'},{t:' · confidence↑ confusion↓ → deepen()',role:'dim'}]);
     } else {
       this.applyMastery(id, 0.03, 0.22);
@@ -2034,6 +2309,15 @@ class Component extends DCLogic {
   onboardNext(){ const i = this.state.onboard.step + 1; if (i >= this.onboardSteps().length){ this.finishOnboard(); return; } this.setState(s=>({ onboard:{ ...s.onboard, step:i } })); this.applyOnboardStep(i); }
   onboardPrev(){ const i = Math.max(0, this.state.onboard.step - 1); this.setState(s=>({ onboard:{ ...s.onboard, step:i } })); this.applyOnboardStep(i); }
   finishOnboard(){ this.setState({ onboard:{ active:false, step:0 } }); try{ localStorage.setItem('ikos_onboarded','1'); }catch(e){} this.pushEvent('◈ tour complete · the loop is yours'); }
+
+  // ---- §4: boot sequence — dismissed by click/Esc or auto-complete; hands off to the tour on first run ----
+  finishBoot(){
+    clearTimeout(this._bootT);
+    if (!this.state.boot || !this.state.boot.active) return;
+    this.setState({ boot:{ active:false } });
+    this.pushEvent('◈ boot complete · all displays synchronized');
+    if (this._wantTour) setTimeout(()=>{ if(!this.state.onboard.active) this.startOnboard(); }, 300);
+  }
 
   // ---- notes ----
   toggleNotes(){ this.setState(s=>({ notesOpen: !s.notesOpen })); }
@@ -2141,6 +2425,7 @@ class Component extends DCLogic {
   closeInspector(){ this.setState({ selected:null }); }
 
   onCanvasDown = (e) => {
+    if (this.state.connectSource){ this.setState({ connectSource:null }); return; }
     if (e.target !== e.currentTarget && !e.target.dataset?.canvas) return;
     const start = { x:e.clientX, y:e.clientY };
     const pan0 = this.state.graphPan || { x:0, y:0 };
@@ -2251,11 +2536,12 @@ class Component extends DCLogic {
     const root = this.state.nodes[rootId]; if (!root) return;
     const members = this.collapsibleMembers(rootId);
     if (!members.length){ this.pushEvent('nothing to fold under “'+root.label+'” — no reflections attached yet'); return; }
+    if (this._orb){ this.spawnShock(rootId, 0x7c93b4, 'implode'); setTimeout(()=>this.orbitSync(), 480); } // §1: a fold implodes — the cluster collapses into its abstraction planet
     this.setState(s => ({ collapsedClusters: { ...s.collapsedClusters, [rootId]: members }, selected:rootId }));
     this.pushEvent('⊟ folded '+members.length+' node'+(members.length>1?'s':'')+' into “'+root.label+'” · abstraction node');
   }
   expandCluster(rootId){
-    this.setState(s => { const c = { ...s.collapsedClusters }; delete c[rootId]; return { collapsedClusters:c }; });
+    this.setState(s => { const c = { ...s.collapsedClusters }; delete c[rootId]; return { collapsedClusters:c }; }, ()=>{ if(this._orb){ this.orbitSync(); this.spawnShock(rootId, 0x7c93b4, 'burst'); } });
     this.pushEvent('⊞ expanded “'+(this.state.nodes[rootId]?this.state.nodes[rootId].label:rootId)+'” · sub-nodes restored');
   }
 
@@ -2394,6 +2680,8 @@ class Component extends DCLogic {
 
     this.afterReflectionWire(R.nodeId, newId);
     this.applyMastery(R.nodeId, 0.18, -0.12);
+    // §1: a reflection's birth is a cosmic event — the new planet arrives with a violet birth-flash
+    if (this._orb) setTimeout(()=>{ this.orbitSync(); this.spawnShock(newId, 0xb59bd6, 'burst'); this.orbitPulse(newId); }, 60);
 
     const next = R.depth + 1;
     if (goDeeper && next < this.maxDepth) {
@@ -2434,18 +2722,32 @@ class Component extends DCLogic {
   }
 
   // ---- TERMINAL ----
-  onTermInput = (e) => { const v = e.target.value; this.setState(s => ({ term: { ...s.term, input:v } })); };
+  onTermInput = (e) => { const v = e.target.value; this.setState(s => ({ term: { ...s.term, input:v, hIdx:-1 } })); };
   onTermKey = (e) => {
     const t = this.state.term;
     if (e.key === 'Enter') { e.preventDefault(); this.runLine(t.input); return; }
     if (e.key === 'ArrowUp') { e.preventDefault(); this.histNav(-1); return; }
     if (e.key === 'ArrowDown') { e.preventDefault(); this.histNav(1); return; }
+    if (e.key === 'Tab') { e.preventDefault(); this.completeTermCommand(); return; }
   };
   histNav(dir){
     const t = this.state.term; if (!t.hist.length) return;
-    let i = t.hIdx === -1 ? (dir<0 ? t.hist.length-1 : -1) : t.hIdx + dir;
-    i = Math.max(0, Math.min(t.hist.length-1, i));
+    if (dir>0 && t.hIdx===-1) return;
+    let i = t.hIdx === -1 ? t.hist.length-1 : t.hIdx + dir;
+    if (i >= t.hist.length){ this.setState(s => ({ term: { ...s.term, hIdx:-1, input:'' } })); return; }
+    i = Math.max(0, i);
     this.setState(s => ({ term: { ...s.term, hIdx:i, input: t.hist[i] } }));
+  }
+  termCompletion(input){
+    const text=(input||'').trim().toLowerCase();
+    if (!text || /\s/.test(text)) return '';
+    const verbs=['help','add','connect','iterate','modules','install','uninstall','export','rechapter','mode','killswitch','reset'];
+    const match=verbs.find(v=>v.startsWith(text));
+    return match&&match!==text ? match : '';
+  }
+  completeTermCommand(){
+    const completion=this.termCompletion(this.state.term.input);
+    if (completion) this.setState(s => ({ term: { ...s.term, input:completion, hIdx:-1 } }));
   }
   termOut(segs){ this.setState(s => ({ term: { ...s.term, lines: [...s.term.lines, { segs }] } })); }
   termClear(){ this.setState(s => ({ term: { ...s.term, lines: [] } })); }
@@ -2487,8 +2789,64 @@ class Component extends DCLogic {
   dispatch(input){
     const lc = input.toLowerCase();
     let m;
+    m = input.match(/^help\s+(\S+)\s*$/i);
+    if (m) return this.cmdHelp(m[1]);
     if (/^(help|\?|commands)$/.test(lc)) return this.cmdHelp();
     if (/^clear$/.test(lc)) return this.termClear();
+    // ---- §6: macro / tactic recording — record "name" … stop · run "name" · macros ----
+    m = input.match(/^record\s+["“]?([^"”]+?)["”]?$/i);
+    if (m){ const name=m[1].trim();
+      if (this.state.term.recording) return this.termOut([{t:'  ✗ already recording “'+this.state.term.recording.name+'” — ',role:'err'},{t:'stop',role:'em'},{t:' first',role:'dim'}]);
+      this.setState(s=>({ term:{ ...s.term, recording:{ name, cmds:[] } } }));
+      this.pushEvent('◉ REC ▸ tactic “'+name+'” — capturing commands until stop');
+      return this.termOut([{t:'  ◉ recording tactic ',role:'err'},{t:name,role:'node'},{t:' — every command is captured · ',role:'dim'},{t:'stop',role:'em'},{t:' saves it.',role:'dim'}]); }
+    if (/^stop$/.test(lc)){ const rec=this.state.term.recording;
+      if (!rec) return this.termOut([{t:'  nothing recording — ',role:'dim'},{t:'record "name"',role:'em'},{t:' to begin.',role:'dim'}]);
+      if (!rec.cmds.length){ this.setState(s=>({ term:{ ...s.term, recording:null } })); return this.termOut([{t:'  ◉ discarded empty tactic “'+rec.name+'”',role:'warn'}]); }
+      this.setState(s=>({ macros:{ ...s.macros, [rec.name]:rec.cmds }, term:{ ...s.term, recording:null } }));
+      this.pushEvent('◉ tactic saved ▸ “'+rec.name+'” · '+rec.cmds.length+' command'+(rec.cmds.length>1?'s':''));
+      return this.termOut([{t:'  ✓ tactic ',role:'ok'},{t:rec.name,role:'node'},{t:' saved · '+rec.cmds.length+' command'+(rec.cmds.length>1?'s':'')+' · replay with ',role:'dim'},{t:'run "'+rec.name+'"',role:'em'}]); }
+    m = input.match(/^run\s+["“]?([^"”]+?)["”]?$/i);
+    if (m){ const name=m[1].trim(); const macros=this.state.macros||{};
+      const key=macros[name]?name:Object.keys(macros).find(k=>k.toLowerCase()===name.toLowerCase());
+      if (!key) return this.termOut([{t:'  ✗ no tactic “'+name+'” — ',role:'err'},{t:'macros',role:'em'},{t:' lists what you have.',role:'dim'}]);
+      if (this.state.term.recording) return this.termOut([{t:'  ✗ can’t run a tactic while recording one',role:'err'}]);
+      const cmds=macros[key];
+      this.pushEvent('▶ tactic “'+key+'” · replaying '+cmds.length+' command'+(cmds.length>1?'s':''));
+      this.termOut([{t:'  ▶ running tactic ',role:'sys'},{t:key,role:'node'},{t:' · '+cmds.length+' command'+(cmds.length>1?'s':''),role:'dim'}]);
+      cmds.forEach((c,i)=>setTimeout(()=>this.runLine(c), 420*(i+1)));
+      return; }
+    if (/^(macros|tactics)$/.test(lc)){ const macros=this.state.macros||{}; const names=Object.keys(macros);
+      if (!names.length) return this.termOut([{t:'  no tactics yet — ',role:'dim'},{t:'record "name"',role:'em'},{t:' … then ',role:'dim'},{t:'stop',role:'em'},{t:' to make one.',role:'dim'}]);
+      this.termOut([{t:'  '+names.length+' tactic'+(names.length>1?'s':'')+':',role:'head'}]);
+      names.forEach(n=>this.termOut([{t:'   ▶ ',role:'dim'},{t:n,role:'node'},{t:'  '+macros[n].length+' commands · ',role:'dim'},{t:'run "'+n+'"',role:'em'}]));
+      return; }
+    m = input.match(/^(?:delete|rm)\s+tactic\s+["“]?([^"”]+?)["”]?$/i);
+    if (m){ const name=m[1].trim(); if (!(this.state.macros||{})[name]) return this.termOut([{t:'  ✗ no tactic “'+name+'”',role:'err'}]);
+      this.setState(s=>{ const macros={ ...s.macros }; delete macros[name]; return { macros }; });
+      return this.termOut([{t:'  ⌫ tactic “'+name+'” deleted',role:'warn'}]); }
+    // ---- §6: explain last — narrate what the previous command changed in the graph ----
+    if (/^explain\s+last$/.test(lc)){
+      const pre=this._preCmd;
+      if (!pre) return this.termOut([{t:'  nothing to explain yet — run a command first.',role:'dim'}]);
+      const s0=this.state;
+      const addedN=Object.keys(s0.nodes).filter(id=>!pre.nodes[id]);
+      const removedN=Object.keys(pre.nodes).filter(id=>!s0.nodes[id]);
+      const addedE=s0.edges.filter(e=>!pre.edges.some(b=>b.id===e.id));
+      const removedE=pre.edges.filter(e=>!s0.edges.some(b=>b.id===e.id));
+      const masteredNow=Object.keys(s0.nodes).filter(id=>s0.nodes[id].state?.mastered && pre.nodes[id] && !pre.nodes[id].state?.mastered);
+      const confMoved=Object.keys(s0.nodes).filter(id=>pre.nodes[id] && Math.abs((s0.nodes[id].state?.confidence||0)-(pre.nodes[id].state?.confidence||0))>0.001).length;
+      this.termOut([{t:'  ⌕ last command · ',role:'sys'},{t:pre.cmd,role:'em'}]);
+      if (!addedN.length && !removedN.length && !addedE.length && !removedE.length && !masteredNow.length && !confMoved)
+        return this.termOut([{t:'   no graph changes — it only changed the view or the log.',role:'dim'}]);
+      addedN.forEach(id=>this.termOut([{t:'   + node ',role:'ok'},{t:s0.nodes[id].label,role:'node'},{t:'  ('+s0.nodes[id].type+') — new structure the book will now render',role:'dim'}]));
+      removedN.forEach(id=>this.termOut([{t:'   − node ',role:'err'},{t:pre.nodes[id].label,role:'node'},{t:'  pruned, along with its edges',role:'dim'}]));
+      addedE.forEach(e=>{ const A=s0.nodes[e.source],B=s0.nodes[e.target]; if(A&&B) this.termOut([{t:'   + edge ',role:'ok'},{t:A.label,role:'node'},{t:' —'+(this.relLabel[e.relationship]||e.relationship)+'→ ',role:'dim'},{t:B.label,role:'node'}]); });
+      removedE.forEach(e=>{ const A=pre.nodes[e.source],B=pre.nodes[e.target]; if(A&&B) this.termOut([{t:'   − edge ',role:'err'},{t:A.label,role:'node'},{t:' ⇸ ',role:'dim'},{t:B.label,role:'node'}]); });
+      masteredNow.forEach(id=>this.termOut([{t:'   ✓ mastered ',role:'ok'},{t:s0.nodes[id].label,role:'node'},{t:'  — sealed in the book, ringed in orbit',role:'dim'}]));
+      if (confMoved) this.termOut([{t:'   ~ confidence shifted on '+confMoved+' node'+(confMoved>1?'s':''),role:'dim'}]);
+      return;
+    }
     if (/^(reset|wipe)(\s+graph|\s+all)?$/.test(lc)) { this.askReset(); return; }
     if (/^(killswitch|kill|panic|lockdown)$/.test(lc)) { this.killswitch(); return; }
     { const rm = input.match(/^(?:rechapter|chapterize)(?:\s+(\d+))?$/i); if (rm){ this.rechapter(parseInt(rm[1]||'3',10)); this.setMode('book'); return; } }
@@ -2557,7 +2915,19 @@ class Component extends DCLogic {
     return this.nlFallback(input);
   }
 
-  cmdHelp(){
+  cmdHelp(command){
+    const usages={
+      help:['help [command]','show command usage'], add:['add node "concept" [as type]','create a typed node'],
+      connect:['connect "A" -> "B" [as relationship]','create a typed edge'], iterate:['iterate --node "concept" [--depth N]','auto-deepen a concept'],
+      modules:['modules','open the module ecosystem'], install:['install "module"','merge an available module'], uninstall:['uninstall "module"','remove an installed module'],
+      export:['export ["name"]','download your graph as a module'], rechapter:['rechapter [size]','rebuild chapter groups'],
+      mode:['mode dev | mode safe','change the trust mode'], killswitch:['killswitch','return to safe mode and prune pending AI'], reset:['reset','restore the seed graph'],
+    };
+    if (command){
+      const item=usages[command.toLowerCase()];
+      if (!item) return this.termOut([{t:'  ✗ no help for “'+command+'”',role:'err'},{t:' · try ',role:'dim'},{t:'help',role:'em'}]);
+      return this.termOut([{t:'  '+item[0],role:'em'},{t:'  '+item[1],role:'dim'}]);
+    }
     const L = (a,b)=>({ segs:[{t:'  '+a, role:'em'},{t: '  '+b, role:'dim'}] });
     this.setState(s => ({ term: { ...s.term, lines: [...s.term.lines,
       { segs:[{t:'commands', role:'head'},{t:'  — natural language also works', role:'dim'}] },
@@ -2643,7 +3013,13 @@ class Component extends DCLogic {
       const spec = m[1]; const ci = spec.indexOf(':');
       const id = ci>=0? spec.slice(0,ci) : spec;
       const label = ci>=0? spec.slice(ci+1) : (this.state.nodes[id]? this.state.nodes[id].label : spec);
-      runs.push({ t: label, isConcept:true, concept:id, onClick: () => this.openConcept(id), title: 'open “'+(this.state.nodes[id]?this.state.nodes[id].label:id)+'” in graph' });
+      // §5: cross-view target lock — a concept hot elsewhere (graph/orbit hover) lights up in the prose too
+      const hot = this.state.hover===id;
+      runs.push({ t: label, isConcept:true, concept:id, onClick: () => this.openConcept(id),
+        onEnter: () => this.setHover(id), onLeave: () => this.setHover(null),
+        style: { color:'#9c4a32', cursor:'pointer', fontWeight:500, paddingBottom:'1px', transition:'background-size .15s',
+          background: hot ? 'linear-gradient(#d4b15f99,#d4b15f99) bottom/100% 100% no-repeat' : 'linear-gradient(#d4b15f55,#d4b15f55) bottom/100% 0.08em no-repeat' },
+        title: 'open “'+(this.state.nodes[id]?this.state.nodes[id].label:id)+'” in graph' });
       last = re.lastIndex;
     }
     if (last < text.length) runs.push({ t: text.slice(last), isText:true });
@@ -2776,6 +3152,12 @@ class Component extends DCLogic {
       return { id, label, title, ariaLabel: title + (isOn?' (current view)':''), selected: isOn?'true':'false', onClick: on, onKey: key2(on),
         style: isOn ? { ...baseMode, background: special?'#7c93b4':accent, color:'#11151c', fontWeight:600 } : { ...baseMode, color: special?'#9db1cf':'#b9b4a6' } };
     };
+    const mobileTab = (id, glyph, label) => {
+      const active=s.mode===id && !s.split; const on=(e)=>this.onMobileTabClick(id,e);
+      return { id, glyph, label, selected:active?'true':'false', ariaLabel:label+(active?' (current view)':''), onClick:on, onKey:key2(on),
+        style:{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'3px', cursor:'pointer', color:active?'#f3eee2':'#7f8999', background:active?'#d4b15f1c':'transparent', borderTop:active?'2px solid #d4b15f':'2px solid transparent' } };
+    };
+    const mobileTabs = { items:[mobileTab('book','▤','Book'), mobileTab('graph','⬡','Graph'), mobileTab('terminal','›_','Terminal'), mobileTab('orbit','◉','Orbit')] };
     const baseVoice = { padding:'5px 10px', borderRadius:'5px', cursor:'pointer', fontSize:'11px', letterSpacing:'.04em' };
     const voiceBtn = (id,label) => { const on=()=>this.setVoice(id); return { id, label, ariaLabel:'Book voice: '+label, selected: s.voice===id?'true':'false', onClick:on, onKey:key2(on), style: s.voice===id ? { ...baseVoice, background:'#9c4a32', color:'#f3eee2' } : { ...baseVoice, color:'#a29c8e' } }; };
 
@@ -2855,7 +3237,7 @@ class Component extends DCLogic {
     // ---- graph ----
     const pathPairs = new Set(); for (let i=0;i<ch.path.length-1;i++) pathPairs.add(ch.path[i]+'>'+ch.path[i+1]);
     const tracePairs = new Set(); for (let i=0;i<(s.tracePath||[]).length-1;i++) tracePairs.add(s.tracePath[i]+'>'+s.tracePath[i+1]);
-    const chipW = (n) => Math.max(70, Math.round(40 + n.label.length*6.6));
+    const chipW = (n) => this.chipW(n);
     const rectHit = (cx,cy,hw,hh,ux,uy) => { const tx = ux!==0? hw/Math.abs(ux):1e9, ty = uy!==0? hh/Math.abs(uy):1e9; const t = Math.min(tx,ty); return [cx+ux*t, cy+uy*t]; };
     const gap = 5, arrowLen = 9;
 
@@ -2910,18 +3292,20 @@ class Component extends DCLogic {
       const n = s.nodes[id]; const p = s.positions[id]; if (!p) return null;
       const meta = tm[n.type]; const onPath = ch.path.includes(id); const sel = s.selected===id;
       const clusterCount = collapsed[id] ? collapsed[id].length : 0;
-      const mastered = !!n.state?.mastered; const isSuggest = s.suggestNext===id; const isConfused = s.confusedNode===id;
+      const mastered = !!n.state?.mastered; const pinned = !!n.pinned; const isSuggest = s.suggestNext===id; const isConfused = s.confusedNode===id;
       const aiPending = n.createdBy==='ai' && n.review==='pending';
       const trustStroke = n.trustLevel==='experimental' ? 'dotted' : (n.trustLevel==='community'||n.trustLevel==='local') ? 'dashed' : 'solid';
       const w = chipW(n);
       const byGlyph = n.createdBy==='ai'?'✦':n.createdBy==='user'?'✎':n.createdBy==='module'?'⬡':'◆';
       const byColor = n.createdBy==='ai'?'#b59bd6':n.createdBy==='user'?'#d4b15f':'#5bb39a';
-      const dim = (s.selected && !sel && !onPath && !this.isNeighbor(id, s.selected));
+      const hot = s.hover===id; // §5: cross-view target lock — hovered in any view
+      const dim = (s.selected && !sel && !onPath && !this.isNeighbor(id, s.selected)) && !hot;
       let boxShadow = sel ? '0 0 0 2px '+accent+', 0 10px 26px #00000088' : onPath ? '0 0 0 1px '+meta.c+'55, 0 0 20px '+meta.c+'33' : '0 3px 10px #00000055';
       if (mastered) boxShadow = (sel?'0 0 0 2px '+accent+', ':'')+'0 0 0 1.5px #5bb39a, 0 0 22px #5bb39a55, 0 6px 18px #00000066';
       if (isSuggest) boxShadow = '0 0 0 2px #d4b15f, 0 0 26px #d4b15f77';
       if (isConfused) boxShadow = '0 0 0 1.5px #cf6a4f, 0 0 22px #cf6a4f66';
       if (aiPending) boxShadow = (sel?'0 0 0 2px '+accent+', ':'')+'0 0 0 1.5px #b59bd6, 0 0 22px #b59bd655, 0 6px 18px #00000066';
+      if (pinned) boxShadow = '0 0 0 1.5px #d4b15f, '+boxShadow;
       if (clusterCount>0) boxShadow = boxShadow + ', 5px 6px 0 -1px #0e1219, 5px 6px 0 0 '+meta.c+'55, 10px 12px 0 -1px #0e1219, 10px 12px 0 0 '+meta.c+'2e';
       const style = {
         position:'absolute', left:p.x+'px', top:p.y+'px', width:w+'px', transform:'translate(-50%,-50%)',
@@ -2933,8 +3317,20 @@ class Component extends DCLogic {
       };
       const sealGlyph = mastered ? '✓' : (isSuggest ? '➜' : (isConfused ? '~' : (aiPending ? '?' : '')));
       const sealColor = mastered ? '#5bb39a' : (isSuggest ? '#d4b15f' : (isConfused ? '#cf6a4f' : '#b59bd6'));
-      return { id, label:n.label, code:meta.code, typeColor:meta.c, byGlyph, byColor, sealOn: !!sealGlyph, sealGlyph, sealColor, conf: Math.round((n.state?.confidence||0)*100)+'%', confColor: mastered?'#5bb39a':meta.c, style, pulseOn: !!(s.pulse && s.pulse.id===id), pulseKey: 'pl'+((s.pulse&&s.pulse.key)||0), onDown: (e)=>this.startDrag(id,e), onLinkDown: (e)=>this.beginLink(id,e), cluster: clusterCount>0, clusterCount, clusterLabel: '▣ '+clusterCount+' folded · expand', onExpand: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.expandCluster(id); } };
+      return { id, label:n.label, code:meta.code, typeColor:meta.c, byGlyph, byColor, sealOn: !!sealGlyph, sealGlyph, sealColor, pinOn:pinned, conf: Math.round((n.state?.confidence||0)*100)+'%', confColor: mastered?'#5bb39a':meta.c, style, pulseOn: !!(s.pulse && s.pulse.id===id), pulseKey: 'pl'+((s.pulse&&s.pulse.key)||0), onDown: (e)=>this.startDrag(id,e), onClick: (e)=>this.onGraphNodeClick(id,e), onContextMenu: (e)=>this.openGraphMenu(id,e), onEnter: ()=>this.setHover(id), onLeave: ()=>this.setHover(null), onLinkDown: (e)=>this.beginLink(id,e), cluster: clusterCount>0, clusterCount, clusterLabel: '▣ '+clusterCount+' folded · expand', onExpand: (e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); this.expandCluster(id); } };
     }).filter(Boolean);
+
+    let graphMenu = { open:false };
+    if (s.graphMenu && s.nodes[s.graphMenu.id]){
+      const gm=s.graphMenu, n=s.nodes[gm.id];
+      graphMenu = { open:true, left:gm.x, top:gm.y, onClose:()=>this.closeGraphMenu(), actions:[
+        { label:'Reflect', color:'#cfc9ba', onClick:()=>{ this.closeGraphMenu(); this.reflectNode(gm.id); } },
+        { label:'Connect…', color:'#a9bdd8', onClick:()=>this.startMenuConnect(gm.id) },
+        { label:'Fold', color:'#a9bdd8', onClick:()=>{ this.closeGraphMenu(); this.collapseCluster(gm.id); } },
+        { label:n.pinned?'Unpin':'Pin', color:'#d4b15f', onClick:()=>{ this.closeGraphMenu(); this.toggleNodePin(gm.id); } },
+        { label:'Send to Orbit', color:'#9fd9c6', onClick:()=>{ this.closeGraphMenu(); this.revealFor('orbit'); this.openOrbitDetail(gm.id); } },
+      ] };
+    }
 
     // ---- inspector ----
     let inspector = { open:false };
@@ -2966,6 +3362,7 @@ class Component extends DCLogic {
         learnState, showSimplify: confu >= 0.45,
         links, noLinks: links.length===0,
         onClose: ()=>this.closeInspector(), onReflect: ()=>this.reflectNode(s.selected), onAssess: ()=>this.assessNode(s.selected), onAsk: ()=>this.askNode(s.selected), onSimplify: ()=>this.simplifyNode(s.selected), onDelete: ()=>this.deleteNode(s.selected),
+        onTogglePin: ()=>this.toggleNodePin(s.selected), pinLabel: n.pinned ? '⌖ unpin · priority target' : '⌖ pin as priority target', pinColor: n.pinned ? '#d4b15f' : '#a89f8a', pinAria: n.pinned ? 'Unpin this concept' : 'Pin this concept as a priority target',
       };
     }
 
@@ -3019,6 +3416,20 @@ class Component extends DCLogic {
       nextLabel: s.onboard.step===obSteps.length-1 ? 'begin →' : 'next →',
     }; })() : { active:false };
 
+    // ---- §4: boot sequence overlay ----
+    const boot = (s.boot && s.boot.active) ? { active:true, onSkip:()=>this.finishBoot(),
+      lines: [
+        { glyph:'◈', color:'#d4b15f', text:'IKOS RUNTIME v0.5 · command environment' },
+        { glyph:'▸', color:'#5bb39a', text:'mounting shared state · '+Object.keys(s.nodes).length+' nodes · '+s.edges.length+' edges' },
+        { glyph:'▸', color:'#7c93b4', text:'displays online · book · graph · terminal · orbit' },
+        { glyph:'▸', color:'#b59bd6', text:'trust lanes sealed · killswitch armed' },
+        { glyph:'✓', color:'#5bb39a', text:'READY — one state, four synchronized views' },
+      ].map((l,i)=>({ ...l, style:{ opacity:0, animation:'bootLine .3s ease both', animationDelay:(0.1+i*0.24)+'s' } })),
+    } : { active:false };
+
+    // ---- §5: data-flow cue — pulse packets between panes (split view only, where two displays are linked) ----
+    const flow = { on: !!(s.pulse && s.split), key: (s.pulse && s.pulse.key)||0 };
+
     // ---- orbit detail modal (interactive) ----
     let orbitDetail = { open:false };
     if (s.orbitDetail && s.nodes[s.orbitDetail]){
@@ -3040,7 +3451,9 @@ class Component extends DCLogic {
         isYtSearch: !!emb && emb.kind==='youtube' && !!emb.search,
         onAutoFind: ()=>this.autoFindVideo(),
         onClose:()=>this.closeOrbitDetail(), onReflect:()=>{ this.closeOrbitDetail(); this.revealFor('graph'); this.reflectNode(n.id); },
-        onGrow:()=>this.growNode(n.id), onDestroy:()=>this.destroyNode(n.id) };
+        onGrow:()=>this.growNode(n.id), onDestroy:()=>this.destroyNode(n.id),
+        onTogglePin:()=>this.toggleNodePin(n.id), pinLabel: n.pinned ? '⌖ Pinned' : '⌖ Pin', pinAria: n.pinned ? 'Unpin — release this priority target' : 'Pin — keep this planet prominent and labelled',
+        pinStyle: { padding:'11px 15px', borderRadius:'9px', cursor:'pointer', fontSize:'13px', border:'1px solid '+(n.pinned?'#d4b15f':'#d4b15f55'), color: n.pinned?'#0c0f14':'#d8c489', background: n.pinned?'#d4b15f':'transparent', fontWeight: n.pinned?600:400 } };
     }
 
     // ---- connect-by-drag: temp line + relationship picker ----
@@ -3088,17 +3501,21 @@ class Component extends DCLogic {
 
     // ---- terminal ----
     const aw = s.term.awaiting;
+    const termSuggestion = this.termCompletion(s.term.input);
     const term = {
       lines: s.term.lines.map(ln => ({ segs: ln.segs.map(sg => ({ t: sg.t, style: 'color:'+(this.roleColor[sg.role]||'#cfc9ba')+';'+((sg.role==='em'||sg.role==='head')?' font-weight:500;':'')+((sg.role==='book')?" font-family:'Spectral',serif; font-style:italic; font-size:13.5px;":'') })) })),
-      input: s.term.input, onInput: this.onTermInput, onKey: this.onTermKey, onClear: ()=>this.termClear(),
+      input: s.term.input, onInput: this.onTermInput, onKey: this.onTermKey, onClear: ()=>this.termClear(), mobileFull:s.mode==='terminal',
+      suggestion:termSuggestion, hasSuggestion:!!termSuggestion,
       prompt: aw ? (aw.type==='assess'?'✶':'↻') : '>', promptColor: aw ? (aw.type==='assess'?'#5bb39a':'#9c4a32') : accent,
       placeholder: aw ? (aw.type==='assess'?'explain it back in your own words…':'answer the reflection…') : 'reflect "anger"  ·  assess "judgment"  ·  help',
       cursorOn: s.term.input? 0 : 1,
     };
 
     return {
-      ui, saved, objective: ch.objective, devMode: s.devMode, termOpen: s.termOpen,
-      breadcrumb, lastEvent: s.lastEvent, stats: { nodes: Object.keys(s.nodes).length, edges: s.edges.length, mastered: Object.values(s.nodes).filter(n=>n.state?.mastered).length },
+      ui, mobileTabs, saved, objective: ch.objective, devMode: s.devMode, termOpen: s.termOpen,
+      breadcrumb, lastEvent: s.lastEvent, syncKey: s.evKey, boot, flow, stats: {
+        coherence: (()=>{ const c=this.chapterCoherence(this.chapter()); return c+'%'; })(),
+        cohColor: (()=>{ const c=this.chapterCoherence(this.chapter()); return c>=80?'#d4b15f':c>=45?'#5bb39a':'#8f93a2'; })(), nodes: Object.keys(s.nodes).length, edges: s.edges.length, mastered: Object.values(s.nodes).filter(n=>n.state?.mastered).length },
       rail: { book: railBook, graph: (s.mode==='graph' && !s.split), onShowStructure: ()=>this.setMode('graph'), onReturnBook: ()=>this.setMode('book'),
         visitedPct: Math.round((visitedCount/Math.max(1,ch.path.length))*100)+'%', masteredPct: Math.round((masteredCount/Math.max(1,ch.path.length))*100)+'%',
         progressLabel: masteredCount+' mastered · '+visitedCount+' of '+ch.path.length+' visited' },
@@ -3115,7 +3532,8 @@ class Component extends DCLogic {
         onPresetFront:()=>this.orbitPreset('front'), onPresetTop:()=>this.orbitPreset('top'), onPresetTilt:()=>this.orbitPreset('tilt'), onPresetWide:()=>this.orbitPreset('wide'), setRef:this.setOrbitRef, labels:labelsOn, onToggleLabels:()=>this.toggleOrbitLabels(), onReset:()=>this.orbitResetCamera(), spin:s.orbitSpin??0.5, onSpin:(e)=>this.setOrbitSpin(parseFloat(e.target.value)), count: Object.keys(s.nodes).filter(id=>!(this._hiddenSet||new Set()).has(id)).length, failed: !!this._orbFailed,
         labelToggleStyle: { width:'38px', height:'21px', borderRadius:'12px', cursor:'pointer', position:'relative', transition:'background .2s', background: labelsOn?'#7c93b4':'#2a3444' },
         labelKnobStyle: { position:'absolute', top:'2px', left: labelsOn?'19px':'2px', width:'17px', height:'17px', borderRadius:'50%', background:'#eef2f7', transition:'left .2s' } }; })(),
-      book, graph: { nodes, edges, worldW:this.worldW, worldH:this.worldH, scale:s.graphScale, canvasCursor:'default', onCanvasDown:this.onCanvasDown, onWheel:this.graphWheel, linkLine, linkPicker,
+      book, graph: { nodes, edges, worldW:this.worldW, worldH:this.worldH, scale:s.graphScale, canvasCursor:'default', onCanvasDown:this.onCanvasDown, onWheel:this.graphWheel, linkLine, linkPicker, menu:graphMenu,
+        hint:s.connectSource ? 'connect order · click a target node · Esc to cancel' : 'drag empty space to pan · scroll to zoom · drag the ↝ handle to connect · tap empty canvas to create',
         transform: 'translate(calc(-50% + '+((s.graphPan&&s.graphPan.x)||0)+'px), calc(-50% + '+((s.graphPan&&s.graphPan.y)||0)+'px)) scale('+(s.graphScale*(s.graphZoom||1))+')',
         zoomPct: Math.round((s.graphZoom||1)*100)+'%',
         onZoomIn:()=>this.graphZoomBy(1.2), onZoomOut:()=>this.graphZoomBy(1/1.2), onResetView:()=>this.graphResetView(),
@@ -3144,13 +3562,21 @@ class Component extends DCLogic {
         micStyle: { width:'30px', height:'30px', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'7px', cursor:'pointer', border:'1px solid '+(s.listening?'#cf6a4f':hair), background: s.listening?'#cf6a4f22':'transparent', color: s.listening?'#e0805f':'#8a8576', flex:'0 0 auto' },
       },
       noop:(e)=>{ if(e&&e.stopPropagation) e.stopPropagation(); },
-      setStageRef:this.setStageRef, setTermInputRef:this.setTermInputRef, setTermScrollRef:this.setTermScrollRef, setReflectRef:this.setReflectRef,
+      setStageRef:this.setStageRef, setTermInputRef:this.setTermInputRef, setTermScrollRef:this.setTermScrollRef, setReflectRef:this.setReflectRef, setMobileTabsRef:this.setMobileTabsRef,
     };
   }
 
   isNeighbor(id, sel){ return this.state.edges.some(e => (e.source===sel&&e.target===id)||(e.target===sel&&e.source===id)); }
 
   startDrag = (id, e) => {
+    if (e.button !== 0) return;
+    if (this.state.connectSource){
+      e.stopPropagation();
+      const from=this.state.connectSource;
+      if (from===id) this.setState({ connectSource:null });
+      else this.openLinkPicker(from, id);
+      return;
+    }
     e.stopPropagation();
     const sc = this.effScale();
     const p0 = this.state.positions[id]; if (!p0) return;
@@ -3167,6 +3593,14 @@ class Component extends DCLogic {
     };
     window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
   };
+
+  onGraphNodeClick(id, e){
+    const from=this.state.connectSource;
+    if (!from) return;
+    e.stopPropagation();
+    if (from===id) this.setState({ connectSource:null });
+    else this.openLinkPicker(from, id);
+  }
 
   effScale(){ return this.state.graphScale * (this.state.graphZoom||1); }
   worldFromEvent(ev){
@@ -3200,7 +3634,28 @@ class Component extends DCLogic {
   };
   openLinkPicker(from, to){
     const rels = ['leads_to','supports','contradicts','requires','explains','deepens'];
-    this.setState({ linking:null, linkPicker:{ from, to, rels, fromLabel:this.state.nodes[from].label, toLabel:this.state.nodes[to].label } });
+    this.setState({ linking:null, connectSource:null, linkPicker:{ from, to, rels, fromLabel:this.state.nodes[from].label, toLabel:this.state.nodes[to].label } });
+  }
+  openGraphMenu(id, e){
+    e.preventDefault(); e.stopPropagation();
+    const r=this.stageEl && this.stageEl.getBoundingClientRect();
+    const x=r ? Math.max(8, Math.min(e.clientX-r.left, r.width-180)) : 8;
+    const y=r ? Math.max(8, Math.min(e.clientY-r.top, r.height-198)) : 8;
+    this.setState({ graphMenu:{ id, x, y }, selected:id, focus:id });
+  }
+  closeGraphMenu(){ this.setState({ graphMenu:null }); }
+  startMenuConnect(from){
+    this.closeGraphMenu();
+    this.setState({ connectSource:from, selected:null, focus:from });
+    this.pushEvent('connect order · select a target for “'+this.state.nodes[from].label+'”');
+  }
+  toggleNodePin(id){
+    const n=this.state.nodes[id]; if (!n) return;
+    const pinned=!n.pinned;
+    // §9: pinned = priority target — the orbit planet stays bright, large & labelled, and pulses when zoomed out
+    this.setState(s=>({ nodes:{ ...s.nodes, [id]:{ ...s.nodes[id], pinned } }, selected:id, focus:id }), ()=>this.orbitSync());
+    this.pushEvent((pinned?'⌖ pinned ':'⌖ unpinned ')+'“'+n.label+'”'+(pinned?' · priority target — stays bright & labelled in orbit':''));
+    if (pinned) this.pulseNode(id);
   }
   cancelLinkPicker(){ this.setState({ linkPicker:null }); }
   commitLink(rel){
