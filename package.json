@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "npx serve .",
-    "check": "node build.mjs && node scripts/check-bundle.mjs"
+    "check": "node build.mjs && node scripts/check-bundle.mjs",
+    "icons": "node scripts/make-icons.mjs"
   }
 }

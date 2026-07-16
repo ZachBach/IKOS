@@ -75,8 +75,12 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[?]` needs a decision
 - [x] 🐙 Collapse the 4-up Split layout to a **swipeable single view** with a bottom tab bar
       (Book · Graph · Terminal · Orbit) under ~720px.
 - [x] 🐙 Touch targets ≥ 44px; terminal input avoids the iOS zoom-on-focus (font-size ≥ 16px).
-- [ ] 🧠 Graph/Orbit gestures: pinch-zoom + one-finger pan already partly work via pointer events —
-      verify on touch, add momentum, prevent page scroll capture.
+- [x] 🧠 Graph/Orbit gestures — `touch-action:none` on the graph stage + orbit canvas so touches
+      drive the view, not the page (no scroll capture); **two-finger pinch-zoom** on both (graph
+      rescales `graphZoom`, orbit dollies the camera — same clamps as the wheel paths); **pan
+      momentum** on the graph (`startPanGlide`, 0.92/frame decay, reduced-motion aware — orbit
+      already had rotational momentum); `pointercancel` handled on both. Worth a hands-on pass
+      on a real touch device to confirm feel.
 - [x] 🐙 Detail modal + Modules browser: full-screen sheets on mobile instead of floating cards.
 - [x] 🐙 Respect `prefers-reduced-motion` (dampen orbit spin, page-flip, comet spawns).
 
@@ -257,6 +261,48 @@ The solo-dev risk here is **fragmentation before convergence** — so define the
   - What does **CME OS** mean in practice — "Command & Control", or "Cognitive Mastery Environment"?
   - Is the end-state mental model: **IKOS = the desktop/OS layer** that the simulators and
     echoUniverse plug into? (If yes, the module/capability system is already 80% of the socket.)
+
+---
+
+## 13 · Distribution — Amazon Appstore (Fire tablets)
+
+*Researched 2026-07: what "putting IKOS on the Kindle store" actually means in practice.*
+
+**Lay of the land:**
+- **Kindle e-readers can't run apps.** The Kindle store (KDP) publishes e-books only — Kindle
+  "active content" is long dead, and e-ink can't do WebGL/WebGPU anyway. Not a target.
+- **The real target is Fire tablets via the Amazon Appstore.** Amazon shut the Appstore down on
+  non-Amazon Android devices (Aug 2025) and on Windows 11 — it now serves Fire devices.
+  A developer account is free.
+- **HTML5/web-app submission is discontinued.** Amazon retired the Creator Service and the
+  web-app (hosted/packaged URL) submission path; new listings must be **Android APKs**
+  (Fire OS is Android-based). Existing web-app listings can only be updated, not created.
+
+**The path — IKOS is well-shaped for this (one self-contained `index.html`):**
+
+- [ ] 🧠 Wrap the bundle in a minimal Android WebView shell — Capacitor is least-friction
+      (`webDir` → the bundle), or a hand-rolled single-Activity WebView. **No TWA/Bubblewrap** —
+      Fire OS ships no Chrome, so Trusted Web Activities won't fly.
+- [ ] 🧠 Fire-OS pass: Android back button closes the top modal/sheet instead of exiting;
+      confirm the classic-WebGL fallback engages (Amazon's WebView has no WebGPU — the
+      triple fallback already covers it); localStorage persists in WebView, but the §3
+      IndexedDB migration makes it sturdier.
+- [x] 🧠 Touch gestures (§2) — prerequisite, shipped this pass.
+- [ ] 👤 Amazon Developer account (free) + listing assets: 512px icon, screenshots, content
+      rating questionnaire, privacy answers (easy — everything is local, nothing collected).
+- [x] 🧠 PWA — the web deploy is now installable with no store at all: `manifest.webmanifest`
+      (standalone, slate/gold), icons rendered from the loader-mark SVG by a dependency-free
+      `scripts/make-icons.mjs` (`npm run icons`; any + maskable + apple-touch), and `sw.js` —
+      network-first navigations (fresh deploys land immediately), stale-while-revalidate for
+      same-origin + the three.js CDNs so **Book/Graph/Terminal/Orbit all work offline** after
+      first load. `build.mjs` injects the manifest link + SW registration into the shell
+      idempotently; `vercel.json` serves `sw.js`/manifest with `must-revalidate`.
+- [?] 👤 Decide: price (free?), and whether the all-rights-reserved source-visible stance
+      changes for a store build.
+
+Docs: [Fire tablet web apps FAQ](https://developer.amazon.com/docs/fire-tablets/ft-webapp-faq.html) ·
+[web-app submission discontinued](https://developer.amazon.com/docs/web-based-apps/developer-console-faq.html) ·
+[Appstore submission](https://developer.amazon.com/docs/app-submission/understanding-submission.html)
 
 ---
 

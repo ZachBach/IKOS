@@ -231,6 +231,18 @@ transplants the injected self-hosted-font `<helmet>`, re-gzips `support.js`, and
 round-trip self-check. (Fonts are frozen; adding a new font family still needs a full `dc-runtime`
 rebuild.) Either way, do not hand-edit `index.html`.
 
+### Installable PWA
+
+The deploy is an installable app — Chrome/Edge on Android or desktop offer **Install** from the
+address bar (iOS: Share → Add to Home Screen), and it runs standalone and **fully offline**
+(the service worker keeps the shell and the three.js CDN modules cached; navigations are
+network-first, so new deploys land as soon as you're online). The pieces:
+
+- `manifest.webmanifest` + `icons/` — identity and icons (regenerate with `npm run icons`,
+  a dependency-free renderer of the gold orbital mark).
+- `sw.js` — the service worker.
+- `build.mjs` injects the manifest link and SW registration into the bundle shell (idempotent).
+
 ---
 
 ## Project structure
@@ -241,6 +253,10 @@ rebuild.) Either way, do not hand-edit `index.html`.
 ├── Iterative Knowledge OS.dc.html # source Design Component (all state + renderers)
 ├── support.js                     # DC runtime
 ├── build.mjs                      # regenerates index.html from source (run before deploy)
+├── manifest.webmanifest           # PWA identity (installable app)
+├── sw.js                          # service worker — offline shell + CDN cache
+├── icons/                         # PWA icons (generated: npm run icons)
+├── scripts/                       # check-bundle.mjs · make-icons.mjs
 ├── vercel.json                    # static hosting config
 ├── TODO.md                        # roadmap & task checklist
 └── README.md

@@ -511,7 +511,7 @@
       <!-- GRAPH PANE -->
       <sc-if value="{{ pane.graph }}" hint-placeholder-val="{{ false }}">
         <div style="{{ pane.graphWrap }}">
-          <div ref="{{ setStageRef }}" onPointerDown="{{ graph.onCanvasDown }}" onWheel="{{ graph.onWheel }}" style="position:absolute; inset:0; overflow:hidden; background:#0a0d12; background-image:radial-gradient(#ffffff0a 1px, transparent 1px); background-size:26px 26px; cursor:{{ graph.canvasCursor }};">
+          <div ref="{{ setStageRef }}" onPointerDown="{{ graph.onCanvasDown }}" onWheel="{{ graph.onWheel }}" style="position:absolute; inset:0; overflow:hidden; touch-action:none; background:#0a0d12; background-image:radial-gradient(#ffffff0a 1px, transparent 1px); background-size:26px 26px; cursor:{{ graph.canvasCursor }};">
             <!-- vignette -->
             <div style="position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 100% at 50% 50%, transparent 55%, #06080b 100%);"></div>
             <!-- layout modes (§3b): tidy the free graph into a tree (trunk · branches · roots) or a radial map -->
@@ -1668,20 +1668,24 @@ class Component extends DCLogic {
       render: ()=>{ if(!this._orb || !this._orb.ready) return; core.rotation.x = this._orb.rot.x; core.rotation.y = this._orb.rot.y; stars.rotation.y = this._orb.rot.y*0.3; try{ renderer.render(scene, camera); }catch(e){} } };
     camera.position.set(0, 30, 720);
     camera.lookAt(0,0,0);
-    // drag to rotate · click (no drag) to open a detail modal
-    let drag=false, moved=false, px=0, py=0, downX=0, downY=0;
+    // drag to rotate · pinch to dolly · click (no drag) to open a detail modal
+    let drag=false, moved=false, px=0, py=0, downX=0, downY=0, pinchD=0;
+    const oPtrs = new Map(); const oDist = ()=>{ const v=[...oPtrs.values()]; return v.length>1 ? Math.hypot(v[0].x-v[1].x, v[0].y-v[1].y) : 0; };
     const dom = renderer.domElement;
-    dom.style.cursor='grab';
-    dom.addEventListener('pointerdown', e=>{ drag=true; moved=false; px=e.clientX; py=e.clientY; downX=e.clientX; downY=e.clientY; dom.style.cursor='grabbing'; });
-    window.addEventListener('pointermove', e=>{ if(!drag||!this._orb) return; if(Math.hypot(e.clientX-downX,e.clientY-downY)>4) moved=true; const dy=(e.clientX-px)*0.006, dx=(e.clientY-py)*0.006; this._orb.rot.y += dy; this._orb.rot.x += dx; this._orb.rot.x=Math.max(-1.3,Math.min(1.3,this._orb.rot.x)); this._orb.vel={x:dx,y:dy}; px=e.clientX; py=e.clientY; this._orb.render(); });
-    window.addEventListener('pointerup', ()=>{ drag=false; if(this._orb) dom.style.cursor='grab'; });
+    dom.style.cursor='grab'; dom.style.touchAction='none'; // §2 touch: gestures stay on the canvas — no page scroll capture
+    dom.addEventListener('pointerdown', e=>{ oPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(oPtrs.size>1){ drag=false; moved=true; pinchD=oDist(); return; } drag=true; moved=false; px=e.clientX; py=e.clientY; downX=e.clientX; downY=e.clientY; dom.style.cursor='grabbing'; });
+    window.addEventListener('pointermove', e=>{ if(oPtrs.has(e.pointerId)) oPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+      if(oPtrs.size>1 && this._orb){ const d=oDist(); if(pinchD&&d){ const c=this._orb.camera; c.position.z=Math.max(220,Math.min(1100,c.position.z*(pinchD/d))); this._orb.render(); } pinchD=d; return; } // §2: pinch = dolly, same clamp as wheel
+      if(!drag||!this._orb) return; if(Math.hypot(e.clientX-downX,e.clientY-downY)>4) moved=true; const dy=(e.clientX-px)*0.006, dx=(e.clientY-py)*0.006; this._orb.rot.y += dy; this._orb.rot.x += dx; this._orb.rot.x=Math.max(-1.3,Math.min(1.3,this._orb.rot.x)); this._orb.vel={x:dx,y:dy}; px=e.clientX; py=e.clientY; this._orb.render(); });
+    const oUp = e=>{ oPtrs.delete(e.pointerId); if(oPtrs.size<2) pinchD=0; if(oPtrs.size) return; drag=false; if(this._orb) dom.style.cursor='grab'; };
+    window.addEventListener('pointerup', oUp); window.addEventListener('pointercancel', oUp);
     dom.addEventListener('click', e=>{ if(moved||!this._orb) return; const r=dom.getBoundingClientRect(); this._orb.mouse.x=((e.clientX-r.left)/r.width)*2-1; this._orb.mouse.y=-((e.clientY-r.top)/r.height)*2+1; this._orb.raycaster.setFromCamera(this._orb.mouse, this._orb.camera); const hits=this._orb.raycaster.intersectObjects(this._orb.nodeMeshes, false); if(hits.length){ const id=hits[0].object.userData.id; if(id) this.flyToOrbit(hits[0].object, id); return; }
       // §1: moons are navigation — clicking a moon follows its edge to the connected concept
       const mhits=this._orb.raycaster.intersectObjects(this._orb.moonMeshes||[], false);
       if(mhits.length){ const md=mhits[0].object.userData; const tgt=(this._orb.nodeMeshes||[]).find(mm=>mm.userData&&mm.userData.id===md.target); const from=this.state.nodes[md.moonOf], to=this.state.nodes[md.target];
         if(tgt && to){ this.pushEvent('☾ moon ▸ “'+(from?from.label:md.moonOf)+'” '+(this.relLabel[md.rel]||md.rel)+' “'+to.label+'” · following the edge'); this.flyToOrbit(tgt, md.target); } } });
     // §5: cross-view target lock — hovering a planet highlights the same concept in every view
-    dom.addEventListener('pointermove', e=>{ if(drag||!this._orb||this._orb.flying) return; const o2=this._orb; const r=dom.getBoundingClientRect(); o2.mouse.x=((e.clientX-r.left)/r.width)*2-1; o2.mouse.y=-((e.clientY-r.top)/r.height)*2+1; o2.raycaster.setFromCamera(o2.mouse, o2.camera);
+    dom.addEventListener('pointermove', e=>{ if(drag||oPtrs.size>1||!this._orb||this._orb.flying) return; const o2=this._orb; const r=dom.getBoundingClientRect(); o2.mouse.x=((e.clientX-r.left)/r.width)*2-1; o2.mouse.y=-((e.clientY-r.top)/r.height)*2+1; o2.raycaster.setFromCamera(o2.mouse, o2.camera);
       const hits=o2.raycaster.intersectObjects(o2.nodeMeshes, false); const id=hits.length?hits[0].object.userData.id:(o2.raycaster.intersectObjects(o2.moonMeshes||[], false)[0]||{object:{userData:{}}}).object.userData.target||null;
       dom.style.cursor=id?'pointer':'grab'; if((id||null)!==(this._hoverId||null)) this.setHover(id||null); });
     dom.addEventListener('pointerleave', ()=>{ if(this._hoverId) this.setHover(null); });
@@ -2427,21 +2431,56 @@ class Component extends DCLogic {
   onCanvasDown = (e) => {
     if (this.state.connectSource){ this.setState({ connectSource:null }); return; }
     if (e.target !== e.currentTarget && !e.target.dataset?.canvas) return;
+    this.stopPanGlide();
+    const P = this._cvPtrs || (this._cvPtrs = new Map());
+    P.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    const dist = () => { const v=[...P.values()]; return v.length>1 ? Math.hypot(v[0].x-v[1].x, v[0].y-v[1].y) : 0; };
+    if (P.size > 1){ this._cvPinch = { d: dist(), z: this.state.graphZoom||1 }; return; } // second finger — the first pointer's listeners run the pinch
     const start = { x:e.clientX, y:e.clientY };
     const pan0 = this.state.graphPan || { x:0, y:0 };
-    let moved = false;
+    let moved = false, pinched = false, last = { x:e.clientX, y:e.clientY, t:performance.now(), vx:0, vy:0 };
     const mv = (ev) => {
+      if (P.has(ev.pointerId)) P.set(ev.pointerId, { x:ev.clientX, y:ev.clientY });
+      if (P.size > 1){ // §2: two-finger pinch-zoom (same clamp as graphWheel)
+        moved = true; pinched = true;
+        const pin = this._cvPinch; const d = dist();
+        if (pin && pin.d && d) this.setState({ graphZoom: Math.max(0.4, Math.min(3, pin.z * (d/pin.d))) });
+        return;
+      }
+      if (ev.pointerId !== e.pointerId || pinched) return;
       if (!moved && Math.hypot(ev.clientX-start.x, ev.clientY-start.y) > 4) moved = true;
-      if (moved) this.setState({ graphPan: { x: pan0.x + (ev.clientX-start.x), y: pan0.y + (ev.clientY-start.y) } });
+      if (moved){
+        const t = performance.now(), dt = Math.max(1, t-last.t);
+        last = { x:ev.clientX, y:ev.clientY, t, vx:(ev.clientX-last.x)/dt, vy:(ev.clientY-last.y)/dt };
+        this.setState({ graphPan: { x: pan0.x + (ev.clientX-start.x), y: pan0.y + (ev.clientY-start.y) } });
+      }
     };
     const up = (ev) => {
-      window.removeEventListener('pointerup', up); window.removeEventListener('pointermove', mv);
-      if (moved) return;
+      P.delete(ev.pointerId);
+      if (P.size){ this._cvPinch = null; return; }
+      window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); window.removeEventListener('pointermove', mv);
+      this._cvPinch = null;
+      if (moved){ if (!pinched) this.startPanGlide(last.vx, last.vy); return; }
       const w = this.worldFromEvent(ev);
       this.promptNewNode(w.x, w.y);
     };
-    window.addEventListener('pointerup', up); window.addEventListener('pointermove', mv);
+    window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); window.addEventListener('pointermove', mv);
   };
+
+  // §2 touch: releasing a pan with speed lets the canvas glide, decaying per frame
+  startPanGlide(vx, vy){
+    if (this.prefersReducedMotion() || Math.hypot(vx, vy) < 0.08) return;
+    this.stopPanGlide();
+    let fx = vx*16, fy = vy*16; // px/ms → px/frame
+    const step = () => {
+      const p = this.state.graphPan || { x:0, y:0 };
+      this.setState({ graphPan: { x:p.x+fx, y:p.y+fy } });
+      fx *= 0.92; fy *= 0.92;
+      this._panGlide = (Math.hypot(fx,fy) > 0.4) ? requestAnimationFrame(step) : null;
+    };
+    this._panGlide = requestAnimationFrame(step);
+  }
+  stopPanGlide(){ if (this._panGlide){ cancelAnimationFrame(this._panGlide); this._panGlide = null; } }
 
   graphWheel = (e) => {
     e.preventDefault();
@@ -2450,9 +2489,10 @@ class Component extends DCLogic {
     this.setState({ graphZoom: nz });
   };
   graphZoomBy(f){ const z=this.state.graphZoom||1; this.setState({ graphZoom: Math.max(0.4, Math.min(3, z*f)) }); }
-  graphResetView(){ this.setState({ graphZoom:1, graphPan:{x:0,y:0} }); }
+  graphResetView(){ this.stopPanGlide(); this.setState({ graphZoom:1, graphPan:{x:0,y:0} }); }
   centerNode(id){
     const p = this.state.positions[id]; if(!p) return;
+    this.stopPanGlide();
     const sc = this.effScale();
     this.setState({ graphPan: { x: -(p.x - this.worldW/2)*sc, y: -(p.y - this.worldH/2)*sc }, selected:id, focus:id });
     this.revealFor('graph');

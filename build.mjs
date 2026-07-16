@@ -80,6 +80,25 @@ let out = html
   .replace(/(<script type="__bundler\/template">)[\s\S]*?(<\/script>)/, (_m, a, b) => a + embed(newTemplate) + b)
   .replace(/(<script type="__bundler\/manifest">)[\s\S]*?(<\/script>)/, (_m, a, b) => a + '\n' + embed(manifest) + '\n' + b);
 
+// --- ensure the PWA wiring in the shell (idempotent; the shell persists across builds) ---
+// manifest + icons + SW registration make the deploy installable (manifest.webmanifest,
+// sw.js, icons/ live at the repo root — regenerate icons with scripts/make-icons.mjs).
+if (!out.includes('rel="manifest"')) {
+  const pwaHead = [
+    '  <meta name="theme-color" content="#0c0f14">',
+    '  <link rel="manifest" href="/manifest.webmanifest">',
+    '  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">',
+    '  <link rel="apple-touch-icon" href="/icons/icon-180.png">',
+    '  <meta name="apple-mobile-web-app-capable" content="yes">',
+    '  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
+    '  <meta name="apple-mobile-web-app-title" content="IKOS">',
+    "  <script>if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')) addEventListener('load', ()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));</script>",
+  ].join('\n');
+  const headEnd = out.indexOf('</head>'); // first literal </head> is the shell's — the embedded JSON escapes every "</"
+  if (headEnd === -1) die('no </head> in ' + OUT + ' shell');
+  out = out.slice(0, headEnd) + pwaHead + '\n' + out.slice(headEnd);
+}
+
 fs.writeFileSync(OUT, out);
 
 // --- self-check: the bundle we just wrote must round-trip ---
