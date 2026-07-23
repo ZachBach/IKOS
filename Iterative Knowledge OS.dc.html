@@ -81,8 +81,14 @@
   }
   @media (max-width: 560px) {
     [data-role="bookspread"] { aspect-ratio: auto !important; flex-direction: column !important; height: auto !important; }
-    [data-role="bookface"] { flex: 0 0 auto !important; border-radius: 5px 5px 0 0 !important; padding: 26px 22px !important; }
-    [data-role="bookprose"] { border-radius: 0 0 5px 5px !important; padding: 26px 22px !important; }
+    /* chapter box: a compact header on phones — the prose is the point, so the
+       decorative cover shrinks (smaller title/epigraph/padding, no planet) */
+    [data-role="bookface"] { flex: 0 0 auto !important; border-radius: 5px 5px 0 0 !important; padding: 14px 18px !important; }
+    [data-role="booktitle"] { font-size: 19px !important; }
+    [data-role="bookrule"] { margin: 8px 0 10px !important; }
+    [data-role="bookepigraph"] { font-size: 12px !important; line-height: 1.4 !important; }
+    [data-role="bookplanet"] { display: none !important; }
+    [data-role="bookprose"] { border-radius: 0 0 5px 5px !important; padding: 18px 20px !important; }
     [data-role="modeswitch"] { flex-wrap: wrap !important; }
     [data-role="orbitmenu"] { position: static !important; width: auto !important; margin: 10px !important; }
     [data-role="detailpanel"] { width: 96% !important; }
@@ -373,18 +379,18 @@
               <div data-role="bookface" style="flex:0 0 41%; border-radius:5px 0 0 5px; padding:42px 30px; position:relative; background:linear-gradient(105deg,#e7decb,#efe7d6); box-shadow:inset -14px 0 26px -16px #00000055; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden;">
                 <div style="position:absolute; inset:0; opacity:.5; pointer-events:none; background:repeating-linear-gradient(0deg,#00000005,#00000005 1px,transparent 1px,transparent 3px);"></div>
                 <sc-if value="{{ book.showPlanet }}" hint-placeholder-val="{{ false }}">
-                  <div aria-hidden="true" style="position:absolute; right:-26px; bottom:-30px; width:150px; height:150px; pointer-events:none; opacity:.82;">
+                  <div data-role="bookplanet" aria-hidden="true" style="position:absolute; right:-26px; bottom:-30px; width:150px; height:150px; pointer-events:none; opacity:.82;">
                     <div style="position:absolute; inset:0; border-radius:50%; {{ book.planetStyle }}"></div>
                     <div style="position:absolute; left:50%; top:50%; width:210px; height:56px; transform:translate(-50%,-50%) rotate(-24deg); border-radius:50%; border:2px solid #ffffff2e; border-top-color:#ffffff10; box-shadow:0 0 12px #00000022;"></div>
                   </div>
                 </sc-if>
                 <div style="position:relative;">
-                  <div style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.32em; color:#9c4a32; text-transform:uppercase;">{{ book.chapNum }}</div>
-                  <div style="width:34px; height:1px; background:#b08d3f; margin:16px 0 22px;"></div>
-                  <div style="font-family:'Spectral',serif; font-weight:500; font-size:30px; line-height:1.12; color:#2a241b; letter-spacing:.005em;">{{ book.title }}</div>
+                  <div data-role="bookchap" style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.32em; color:#9c4a32; text-transform:uppercase;">{{ book.chapNum }}</div>
+                  <div data-role="bookrule" style="width:34px; height:1px; background:#b08d3f; margin:16px 0 22px;"></div>
+                  <div data-role="booktitle" style="font-family:'Spectral',serif; font-weight:500; font-size:30px; line-height:1.12; color:#2a241b; letter-spacing:.005em;">{{ book.title }}</div>
                 </div>
                 <div style="position:relative;">
-                  <div style="font-family:'Spectral',serif; font-style:italic; font-size:14.5px; line-height:1.5; color:#5a4f3f;">{{ book.epigraph }}</div>
+                  <div data-role="bookepigraph" style="font-family:'Spectral',serif; font-style:italic; font-size:14.5px; line-height:1.5; color:#5a4f3f;">{{ book.epigraph }}</div>
                   <div style="font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:.2em; color:#9c4a32; text-transform:uppercase; margin-top:12px;">— {{ book.epigraphBy }}</div>
                 </div>
                 <div style="position:relative; display:flex; align-items:center; gap:7px; font-family:'IBM Plex Mono',monospace; font-size:8.5px; color:#a08a6a; letter-spacing:.12em;">
